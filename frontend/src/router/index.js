@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LessonPreparation from '../views/Teacher/LessonPreparation.vue';
+import AnalyticsDashboard from '../views/Teacher/AnalyticsDashboard.vue';
 
 const routes = [
   {
@@ -11,6 +12,11 @@ const routes = [
     path: '/teacher/lesson-preparation',
     name: 'LessonPreparation',
     component: LessonPreparation
+  },
+  {
+    path:'/teacher/analytics',
+    name:'Analytics',
+    component:AnalyticsDashboard,
   }
   // Add other routes as needed
 ];
