@@ -1,20 +1,32 @@
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
-import router from './router'; 
+import router from './router'
+import { createPinia } from 'pinia'  // ✅ 导入 Pinia
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
-const app = createApp(App);
-app.use(router);
+const app = createApp(App)
 
-// 开发环境下启用 Mock API
+// 注册所有图标
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, component)
+}
+
+const pinia = createPinia()
+
+app.use(pinia)
+app.use(router)  // ✅ 注册 Pinia 插件
+app.use(ElementPlus)
+
+// 启动 Mock 并挂载
 if (import.meta.env.MODE === 'development') {
   import('./api/mocks/browser').then(({ worker }) => {
     worker.start()
   }).then(() => {
-    // Mock 服务启动后再挂载 Vue 应用
     app.mount('#app')
   })
 } else {
-  // 生产环境直接挂载
   app.mount('#app')
 }

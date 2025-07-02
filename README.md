@@ -15,9 +15,16 @@
 
 #### 使用说明
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+1.  启动后端服务：
+```bash
+cd ~/PycharmProjects/CampusAgent/campus-agent
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
+2.  启动前端：
+```bash
+cd frontend
+npm run dev
+```
 
 #### 参与贡献
 

@@ -15,7 +15,7 @@
                     <router-link to="/teacher/lesson-preparation" :class="{active: $route.path === '/teacher/lesson-preparation'}">备课与设计</router-link>
                 </li>
                 <li>
-                    <router-link to="/" :class="{active: $route.path === '/'}">考核内容生成</router-link>
+                    <router-link to="/teacher/exam-generator" :class="{active: $route.path === '/teacher/exam-generator'}">考核内容生成</router-link>
                 </li>
                 <li>
                     <router-link to="/teacher/analytics" :class="{active: $route.path === '/teacher/analytics'}">学情分析</router-link>
