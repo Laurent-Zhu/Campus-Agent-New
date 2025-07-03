@@ -27,11 +27,17 @@ from reportlab.lib.fonts import addMapping
 from docx import Document
 from docx.shared import Pt
 from docx.oxml.ns import qn
+import os
 
 # from backend.app.main import vector_store
 from ...core.deps import get_vector_store
 
-pdfmetrics.registerFont(TTFont('SimHei', '/home/laurentzhu/PycharmProjects/CampusAgent-fusion/backend/app/static/fonts/simhei.ttf'))
+# 获取当前 exam.py 所在目录
+current_dir = os.path.dirname(__file__)
+
+# 从当前目录向上跳两级，再进入 static/fonts
+font_path = os.path.abspath(os.path.join(current_dir, '..', '..', 'static', 'fonts', 'simhei.ttf'))
+# pdfmetrics.registerFont(TTFont('SimHei', '/home/laurentzhu/PycharmProjects/CampusAgent-fusion/backend/app/static/fonts/simhei.ttf'))
 addMapping('SimHei', 0, 0, 'SimHei')
 
 router = APIRouter()

@@ -9,11 +9,13 @@ from langchain_community.chat_models import ChatZhipuAI
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from zhipuai import ZhipuAI
 import os
+from dotenv import load_dotenv
 
 class ChatGLMClient:
     def __init__(self):
         self.config = ModelConfig()
-        self.api_key = api_key = os.environ["ZHIPU_API_KEY"]#self.config.API_KEY.strip()
+        load_dotenv()
+        self.api_key = api_key = os.getenv("ZHIPU_API_KEY")#os.environ["ZHIPU_API_KEY"]#self.config.API_KEY.strip()
         print("实际读取到的API_KEY:", repr(self.api_key))  # 添加这一行
         self.client = httpx.AsyncClient(
             base_url=self.config.API_BASE_URL,

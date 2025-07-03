@@ -19,10 +19,10 @@ BACKEND_DIR = os.path.join(BASE_DIR, 'backend')
 if BACKEND_DIR not in sys.path:
     sys.path.insert(0, BACKEND_DIR)
 
-from app.db.base_class import Base
-import app.models.user
-import app.models.course
-import app.models.exam
+from backend.app.db.base_class import Base
+import backend.app.models.user
+import backend.app.models.course
+import backend.app.models.exam
 
 # 添加模型的元数据
 target_metadata = Base.metadata
