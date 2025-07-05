@@ -1,71 +1,43 @@
-// src/stores/analytics.js
-
+// src/stores/analyticsStore.js
 import { defineStore } from 'pinia'
+import { useClassStore, useStudentStore } from '@/stores'
 import { 
-  fetchClassList, 
-  fetchStudentDetails,
+  fetchKnowledgeMastery,
   fetchAssignmentAnalysis 
-} from '../api/teacher'
+} from '@/api/teacher'
 
 export const useAnalyticsStore = defineStore('analytics', {
   state: () => ({
-    timeRange: 'month',
-    currentView: 'class',
-    loading: false,
-    error: null,
-    classes: [],
-    currentClass: null,
-    selectedStudent: null,
-    assignmentStats: [],
-    knowledgeMastery: [],
+    currentView: 'class',      // 当前视图模式
+    currentClass: null,       // 当前班级ID
     compareMode: false,
-    comparedClass: null
+    comparedClass: null       // 对比班级ID
   }),
 
   getters: {
+    // 当前班级完整数据
+    currentClassDetail(state) {
+      const classStore = useClassStore()
+      return state.currentClass 
+        ? classStore.rawClasses.find(c => c.id === state.currentClass) 
+        : null
+    },
+
+    // 学生排名 (基于班级数据)
     rankedStudents(state) {
-      if (!state.currentClass) return []
-      return [...(state.currentClass.students || [])]
+      if (!this.currentClassDetail) return []
+      return [...(this.currentClassDetail.students || [])]
         .sort((a, b) => b.overallScore - a.overallScore)
-    },
-
-    weakKnowledgePoints(state) {
-      return state.knowledgeMastery
-        .filter(item => item.masteryRate < 0.6)
-        .sort((a, b) => a.masteryRate - b.masteryRate)
-    },
-
-    timeRangeLabel(state) {
-      const ranges = {
-        'week': '最近一周',
-        'month': '最近一月',
-        'term': '本学期',
-        'year': '本学年'
-      }
-      return ranges[state.timeRange] || ''
     }
   },
 
   actions: {
-    async initLoad() {
-      try {
-        this.loading = true
-        this.classes = await fetchClassList()
-        if (this.classes.length > 0) {
-          await this.selectClass(this.classes[0].id)
-        }
-      } catch (err) {
-        this.error = err.message || '加载失败'
-      } finally {
-        this.loading = false
-      }
-    },
-
+    // 选择班级
     async selectClass(classId) {
-      this.currentClass = this.classes.find(c => c.id === classId) || null
+      this.currentClass = classId
       this.currentView = 'class'
       
-      if (this.currentClass) {
+      if (classId) {
         await Promise.all([
           this.fetchClassKnowledgeData(),
           this.fetchAssignmentStats()
@@ -73,74 +45,55 @@ export const useAnalyticsStore = defineStore('analytics', {
       }
     },
 
-    async selectStudent(studentId) {
-      if (!this.currentClass) return
-      
-      this.loading = true
-      try {
-        this.selectedStudent = await fetchStudentDetails({
-          classId: this.currentClass.id,
-          studentId,
-          timeRange: this.timeRange
-        })
-        this.currentView = 'student'
-      } catch (err) {
-        this.error = err.message || '加载学生数据失败'
-      } finally {
-        this.loading = false
-      }
+    // 选择学生 (现在只管理视图状态)
+    selectStudent(studentId) {
+      const studentStore = useStudentStore()
+      this.currentView = 'student'
+      return studentStore.fetchStudentDetail({
+        classId: this.currentClass,
+        studentId
+      })
     },
 
+    // 班级知识点数据
     async fetchClassKnowledgeData() {
       if (!this.currentClass) return
       
-      this.knowledgeMastery = await fetchKnowledgeMastery({
-        classId: this.currentClass.id,
-        timeRange: this.timeRange
-      })
+      try {
+        this.knowledgeMastery = await fetchKnowledgeMastery({
+          classId: this.currentClass,
+          timeRange: 'month' // 使用默认或从studentStore获取
+        })
+      } catch (err) {
+        console.error('获取知识点数据失败:', err)
+        throw err
+      }
     },
 
+    // 班级作业数据
     async fetchAssignmentStats() {
       if (!this.currentClass) return
       
-      this.assignmentStats = await fetchAssignmentAnalysis({
-        classId: this.currentClass.id,
-        timeRange: this.timeRange
-      })
-    },
-
-    async changeTimeRange(range) {
-      this.timeRange = range
-      if (this.currentClass) {
-        await Promise.all([
-          this.fetchClassKnowledgeData(),
-          this.fetchAssignmentStats()
-        ])
-      }
-      if (this.selectedStudent) {
-        await this.selectStudent(this.selectedStudent.id)
+      try {
+        this.assignmentStats = await fetchAssignmentAnalysis({
+          classId: this.currentClass,
+          timeRange: 'month'
+        })
+      } catch (err) {
+        console.error('获取作业数据失败:', err)
+        throw err
       }
     },
 
+    // 切换对比模式
     toggleCompareMode(classId) {
       this.compareMode = !this.compareMode
-      if (this.compareMode && classId) {
-        this.comparedClass = this.classes.find(c => c.id === classId) || null
-      } else {
-        this.comparedClass = null
-      }
-    },
-
-    resetView() {
-      this.currentView = 'class'
-      this.selectedStudent = null
-      this.compareMode = false
-      this.comparedClass = null
+      this.comparedClass = this.compareMode ? classId : null
     }
   },
 
   persist: {
     key: 'teacher-analytics',
-    paths: ['timeRange', 'currentClass.id', 'compareMode']
+    paths: ['currentClass', 'compareMode']
   }
 })

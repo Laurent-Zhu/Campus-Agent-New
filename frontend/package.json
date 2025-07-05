@@ -21,5 +21,10 @@
     "@vitejs/plugin-vue": "^6.0.0",
     "msw": "^2.10.2",
     "vite": "^7.0.0"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }
