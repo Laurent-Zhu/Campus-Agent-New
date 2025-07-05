@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
+
+//教师端路由
 import LessonPreparation from '../views/Teacher/LessonPreparation.vue';
 import AnalyticsDashboard from '../views/Teacher/AnalyticsDashboard.vue';
 import ExamGenerator from '../views/Teacher/ExamGenerator.vue';
@@ -6,7 +8,10 @@ import Login from '../views/login.vue';
 import Register from '../views/register.vue';
 import ClassList from '../views/Teacher/Analytics/ClassList.vue';
 import AnalyticsView from '../views/Teacher/Analytics/AnalyticsView.vue';
-import StudentView from '../components/StudentList.vue';
+import StudentView from '../components/Teacher/StudentList.vue';
+
+//学生端路由
+import ExerciseView from '../views/Student/ExerciseView.vue';
 
 const routes = [
   {
@@ -57,7 +62,50 @@ const routes = [
   {
     path: '/teacher',
     redirect: '/classes'
-  }
+  },
+  {
+    path: '/exercise',
+    name: 'Exercise',
+    component: ExerciseView
+  },
+
+  //学生端路由
+  
+  //实时练习评测助手
+  {
+    path: '/student/exercise',
+    name: 'Exercise',
+    component: ExerciseView,
+    meta: { 
+      title: '智能练习评测',
+      requiresAuth: true,
+      role: 'student'
+    }
+  },
+  {
+    path: '/student/exercise/:exerciseId',
+    name: 'ExerciseDetail',
+    component: ExerciseView,
+    props: true,
+    meta: { 
+      title: '题目练习',
+      requiresAuth: true,
+      role: 'student'
+    }
+  },
+  {
+    path: '/student/exercise/:history',
+    name: 'History',
+    component: ExerciseView,
+    props: true,
+    meta: { 
+      title: '练习历史',
+      requiresAuth: true,
+      role: 'student',
+      showHistory: true
+    }
+  },
+
   // Add other routes as needed
 ];
 

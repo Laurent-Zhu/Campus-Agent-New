@@ -43,8 +43,8 @@
 import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useClassStore } from '@/stores/classStore'
-import ClassAnalytics from '@/components/ClassAnalytics.vue'
-import StudentList from '@/components/StudentList.vue'
+import ClassAnalytics from '@/components/Teacher/ClassAnalytics.vue'
+import StudentList from '@/components/Teacher/StudentList.vue'
 
 const route = useRoute()
 const router = useRouter()

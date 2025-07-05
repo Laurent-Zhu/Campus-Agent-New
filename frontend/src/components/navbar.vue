@@ -20,6 +20,9 @@
                 <li>
                     <router-link to="/teacher/analytics" :class="{active: $route.path === '/teacher/analytics'}">学情分析</router-link>
                 </li>
+                <li>
+                    <router-link to="/student/exercise" :class="{active: $route.path === '/student/exercise'}">实时测评助手</router-link>
+                </li>
             </ul>
 
             <ul class="login">

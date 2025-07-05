@@ -17,7 +17,7 @@
 <script setup>
 import { storeToRefs } from 'pinia'
 import { useClassStore } from '@/stores/classStore'
-import ClassCard from '@/components/ClassCard.vue'
+import ClassCard from '@/components/Teacher/ClassCard.vue'
 
 const store = useClassStore()
 const { classes, loading } = storeToRefs(store)

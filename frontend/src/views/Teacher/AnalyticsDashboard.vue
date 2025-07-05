@@ -158,8 +158,8 @@
 
 <script>
 import { ref, computed, onMounted, watch } from 'vue'
-import BarChart from '../../components/BarChart.vue'
-import PieChart from '../../components/PieChart.vue'
+import BarChart from '../../components/Chart/BarChart.vue'
+import PieChart from '../../components/Chart/PieChart.vue'
 
 export default {
   components: {
