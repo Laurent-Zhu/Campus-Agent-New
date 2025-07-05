@@ -9,15 +9,53 @@
 
 #### 安装教程
 
-1.  xxxx
-2.  xxxx
+1. 配置环境
+
+   ```bash
+   # 安装依赖（仅项目用到的）
+   pip install requirements.txt
+   # 安装依赖（从虚拟环境导出的所有依赖）
+   pip install requirements-all.txt
+   ```
+
+2. 数据库配置
+
+   - 当前采用`SQLite`数据库
+
+   - 配置文件位于`backend/app/core/config.py`，也可通过`backend/.env`动态加载配置
+
+   - 初始化数据库
+
+     ```bash
+     python -c "from config.database import init_db; init_db()"
+     ```
+
+   - 数据库迁移：项目当前使用 Alembic 进行数据库迁移管理
+
+     ```bash
+     # 初始化 Alembic：
+     alembic init migrations
+     # 生成迁移脚本：
+     alembic revision --autogenerate -m "initial"
+     # 应用迁移：
+     alembic upgrade head
+     ```
+
+     
+
 3.  xxxx
 
 #### 使用说明
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+1.  启动后端服务：
+```bash
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
+2.  启动前端：
+```bash
+cd frontend
+npm run dev
+```
 
 #### 参与贡献
 

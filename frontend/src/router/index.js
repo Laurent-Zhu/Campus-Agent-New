@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import LessonPreparation from '../views/Teacher/LessonPreparation.vue';
 import AnalyticsDashboard from '../views/Teacher/AnalyticsDashboard.vue';
+import ExamGenerator from '../views/Teacher/ExamGenerator.vue';
+import Login from '../views/login.vue';
+import Register from '../views/register.vue';
 import ClassList from '../views/Teacher/Analytics/ClassList.vue';
 import AnalyticsView from '../views/Teacher/Analytics/AnalyticsView.vue';
 import StudentView from '../components/StudentList.vue';
@@ -9,6 +12,7 @@ const routes = [
   {
     path: '/',
     name: 'Home',
+    // redirect: '/login' // 默认跳转到登录页面
     // component: navbar => import('../components/navbar.vue'),
   },
   {
@@ -20,6 +24,21 @@ const routes = [
     path:'/teacher/analytics',
     name:'Analytics',
     component:AnalyticsDashboard,
+  },
+  {
+    path: '/teacher/exam-generator',
+    name: 'ExamGenerator',
+    component: ExamGenerator
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: Register
   },
   {
     path:'/teacher/classes',
