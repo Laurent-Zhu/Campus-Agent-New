@@ -65,6 +65,10 @@ app.include_router(
     tags=["auth"]
 )
 
+from backend.app.api.endpoints.student import router as student_router
+
+app.include_router(student_router, prefix="/api/v1/student", tags=["Student"])
+
 # 启动时自动建表（仅开发环境用，生产建议用alembic）
 Base.metadata.create_all(bind=engine)
 
