@@ -21,12 +21,14 @@ app.use(router)  // ✅ 注册 Pinia 插件
 app.use(ElementPlus)
 
 // 启动 Mock 并挂载
-if (import.meta.env.MODE === 'development') {
-  import('./mocks/browser').then(({ worker }) => {
-    worker.start()
-  }).then(() => {
-    app.mount('#app')
-  })
-} else {
-  app.mount('#app')
-}
+// if (import.meta.env.MODE === 'development') {
+//   import('./mocks/browser').then(({ worker }) => {
+//     worker.start()
+//   }).then(() => {
+//     app.mount('#app')
+//   })
+// } else {
+//   app.mount('#app')
+// }
+
+app.mount('#app')

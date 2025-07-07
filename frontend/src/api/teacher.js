@@ -1,4 +1,16 @@
 // src/api/teacher.js
+import axios from 'axios';
+
+export function uploadLessonPreparationFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return axios.post('/api/teacher/lesson-preparation/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+}
 
 // 模拟 API 请求延迟
 const simulateNetworkDelay = () => new Promise(resolve => setTimeout(resolve, 300))
