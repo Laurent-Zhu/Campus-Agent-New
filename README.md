@@ -57,6 +57,26 @@ cd frontend
 npm run dev
 ```
 
+3. 教师端——备课与设计功能使用django实现
+   
+3.1 启动前端服务：
+```bash
+cd frontend
+npm run dev
+```
+3.2 启动后端服务：
+```bash
+cd backend
+python manage.py runserver
+```
+需要DEEPSEEK_API_KEYS
+环境变量设置一下：
+> 在PowerShell中设置环境变量：
+$env:DEEPSEEK_API_KEY="你的DeepSeek Key"
+
+> 在cmd中设置环境变量：
+set DEEPSEEK_API_KEY=你的DeepSeek Key
+
 #### 参与贡献
 
 1.  Fork 本仓库
