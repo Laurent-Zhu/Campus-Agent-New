@@ -1,4 +1,6 @@
 from .teacher.exam_generation.exam_generator import ExamGeneratorAgent
+from .student.qa_agent import QAAgent
+
 
 class AgentFactory:
     """智能体工厂类"""
@@ -21,5 +23,7 @@ class AgentFactory:
         # 根据类型创建对应的智能体
         if agent_type == "exam_generator":
             return ExamGeneratorAgent()
+        elif agent_type == "qa_agent":
+            return QAAgent()
         else:
             return None

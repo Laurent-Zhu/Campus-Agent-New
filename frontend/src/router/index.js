@@ -9,6 +9,8 @@ import Register from '../views/register.vue';
 import ClassList from '../views/Teacher/Analytics/ClassList.vue';
 import AnalyticsView from '../views/Teacher/Analytics/AnalyticsView.vue';
 import StudentView from '../components/Teacher/StudentList.vue';
+import QuestionAnswer from "../views/Student/QuestionAnswer.vue";
+
 
 //学生端路由
 import ExerciseView from '../views/Student/ExerciseView.vue';
@@ -105,6 +107,11 @@ const routes = [
       showHistory: true
     }
   },
+  {
+    path: "/student/qa",
+    name: "QuestionAnswer",
+    component: QuestionAnswer,
+  }
 
   // Add other routes as needed
 ];

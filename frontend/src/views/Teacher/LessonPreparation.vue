@@ -7,7 +7,7 @@
     <div class="input-section">
       <h2>输入教学材料</h2>
       <input type="file" @change="handleFileUpload" accept=".pdf,.docx">
-      <button @click="uploadMaterials">上传</button>
+      <!-- <button @click="uploadMaterials">上传</button> -->
       <p v-if="fileName">已选择文件: {{ fileName }}</p>
     </div>
 
@@ -19,14 +19,56 @@
       <label for="teachingGoals">教学目标:</label>
       <textarea id="teachingGoals" v-model="teachingGoals" rows="3" placeholder="输入教学目标..."></textarea>
 
-      <button @click="generateLessonPlan">生成备课内容</button>
+      <button @click="uploadAndGenerate">上传并生成备课内容</button>
     </div>
 
     <div v-if="lessonPlan" class="output-section">
       <h2>生成的备课内容</h2>
-      <div v-html="lessonPlan"></div>
-      <button @click="downloadLessonPlan">下载备课内容</button>
-      <button @click="editLessonPlan">手动调整</button>
+      <pre>{{ lessonPlan }}</pre>
+
+      <div v-if="lessonPlan.structured_draft">
+        <h3>课件草稿</h3>
+        <div>标题：{{ lessonPlan.structured_draft.title }}</div>
+        <div v-for="(mod, idx) in lessonPlan.structured_draft.modules" :key="idx">
+          <strong>模块{{ idx+1 }}：</strong>{{ mod.name }}
+          <ul>
+            <li v-for="(point, pidx) in mod.points" :key="pidx">
+              {{ point }}
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div v-if="lessonPlan.training_plan">
+        <h3>实训计划</h3>
+        <div>
+          <strong>知识目标：</strong>
+          <ul>
+            <li v-for="(k, idx) in lessonPlan.training_plan.objectives.knowledge" :key="idx">{{ k }}</li>
+          </ul>
+          <strong>技能目标：</strong>
+          <ul>
+            <li v-for="(s, idx) in lessonPlan.training_plan.objectives.skills" :key="idx">{{ s }}</li>
+          </ul>
+          <strong>任务：</strong>
+          <ul>
+            <li v-for="(t, idx) in lessonPlan.training_plan.tasks" :key="idx">{{ t }}</li>
+          </ul>
+        </div>
+      </div>
+      <div v-if="lessonPlan.schedule">
+        <h3>时间安排表</h3>
+        <div>总课时：{{ lessonPlan.schedule.total_hours }}</div>
+        <ul>
+          <li v-for="(item, idx) in lessonPlan.schedule.details" :key="idx">
+            第{{ item.hour }}小时：{{ item.activity }}
+          </li>
+        </ul>
+      </div>
+
+      <a v-if="pptxUrl" :href="pptxUrl" target="_blank" download>下载PPT</a>
+      <!-- <button @click="downloadLessonPlan">下载备课内容</button> -->
+      <!-- <button @click="editLessonPlan">手动调整</button> -->
+
     </div>
 
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
@@ -48,7 +90,8 @@ export default {
       teachingGoals: '',
       lessonPlan: null,
       loading: false,
-      errorMessage: ''
+      errorMessage: '',
+      pptxUrl: null
     };
   },
   methods: {
@@ -60,72 +103,55 @@ export default {
         this.fileName = '';
       }
     },
-    async uploadMaterials() {
-      if (!this.selectedFile) {
-        this.errorMessage = '请选择要上传的文件。';
+    async  uploadAndGenerate() { 
+      if(!this.selectedFile && (!this.courseOutline || !this.teachingGoals)){
+        this.errorMessage = '请上传文件或填写课程大纲和教学目标。';
         return;
       }
-
       this.loading = true;
       this.errorMessage = '';
-
       const formData = new FormData();
-      formData.append('file', this.selectedFile);
+      if(this.selectedFile) formData.append('file', this.selectedFile);
+      formData.append('course_outline', this.courseOutline);
+      formData.append('teaching_goals', this.teachingGoals);
 
       try {
-        // Replace with your Django backend API endpoint for file upload
-        const response = await axios.post('YOUR_DJANGO_BACKEND_API/upload-materials/', formData, {
+        const response = await axios.post('/api/teacher/lesson-preparation/', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
-        console.log('File uploaded successfully:', response.data);
-        // You might want to store some ID or confirmation from the backend
-        alert('文件上传成功！');
+        // JSON 解析和美化
+        console.log('后端返回：', response.data);
+        let data = response.data;
+        if (typeof data === 'string') {
+          data = data.replace(/```json|```/g, '');
+          try {
+            data = JSON.parse(data);
+          } catch(e) {
+            this.errorMessage = '返回解析内容失败，请重试。';
+            return;
+          }
+        }
+        this.lessonPlan = data;
+        this.pptxUrl = response.data.pptx_url;
+        console.log('lessonPlan:', this.lessonPlan);
       } catch (error) {
-        console.error('Error uploading file:', error);
-        this.errorMessage = '文件上传失败，请重试。';
+        // console.error('Error generating lesson plan:', error);
+        this.errorMessage= error.response?.data?.error || '生成备课内容失败，请重试。';
       } finally {
         this.loading = false;
       }
-    },
-    async generateLessonPlan() {
-      this.loading = true;
-      this.errorMessage = '';
-      this.lessonPlan = null;
-
-      try {
-        // This is where you'd call your Django backend API that interacts with the LangChain agent.
-        // The backend would handle:
-        // - Loading content (from uploaded file or text input) 
-        // - Using LangChain + Document Loader 
-        // - Using RetrievalQA/QAChain with Prompt templates to generate the lesson plan 
-        const response = await axios.post('YOUR_DJANGO_BACKEND_API/generate-lesson-plan/', {
-          course_outline: this.courseOutline,
-          teaching_goals: this.teachingGoals,
-          // You might send a reference to the uploaded file here if applicable
-          // file_id: <id_from_upload>
-        });
-
-        this.lessonPlan = response.data.lesson_plan_html; // Assuming backend returns HTML or Markdown
-      } catch (error) {
-        console.error('Error generating lesson plan:', error);
-        this.errorMessage = '生成备课内容失败，请重试。';
-      } finally {
-        this.loading = false;
-      }
-    },
-    downloadLessonPlan() {
-      // Implement logic to download the generated lesson plan (e.g., as a PDF or DOCX)
-      // This might involve creating a blob from the lessonPlan content and triggering a download.
-      // Or, your Django backend could provide a dedicated download endpoint.
-      alert('下载功能待实现。');
-    },
-    editLessonPlan() {
-      // Implement logic to allow manual adjustment of the lesson plan.
-      // You could convert the lessonPlan content into a textarea for editing.
-      alert('手动调整功能待实现。');
     }
+
+    // downloadLessonPlan() {
+    //   // coding here
+    //   alert('下载功能待实现。');
+    // },
+    // editLessonPlan() {
+    //   // coding here
+    //   alert('手动调整功能待实现。');
+    // }
   }
 };
 </script>
