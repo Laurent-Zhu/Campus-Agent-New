@@ -44,8 +44,7 @@ INSTALLED_APPS = [
     # 'admin',
     'core',
     'corsheaders',
-
-    'student.exercises',
+    'student.exercises'
 
 ]
 

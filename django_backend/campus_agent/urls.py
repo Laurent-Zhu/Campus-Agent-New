@@ -22,6 +22,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # 学生端的全部路由
     path('api/student/', include('student.urls')),
     path('api/teacher/', include('teacher.urls')),
     path('api/administor/', include('administor.urls')),
