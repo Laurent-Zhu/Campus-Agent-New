@@ -71,7 +71,7 @@
         this.scrollToBottom();
         
         try {
-          const res = await axios.post("/api/v1/student/qa", {
+          const res = await axios.post("/api/fastapi/v1/student/qa", {
             question: q,
           });
           const answerText = res.data.answer || "抱歉，未能获取回答。";

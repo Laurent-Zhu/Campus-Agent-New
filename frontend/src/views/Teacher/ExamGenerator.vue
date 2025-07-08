@@ -218,7 +218,7 @@ export default {
       formData.append('file', this.selectedFile)
 
       try {
-        await axios.post('/api/v1/upload-materials', formData, {
+        await axios.post('/api/fastapi/v1/upload-materials', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
         alert('文件上传成功！')
@@ -238,7 +238,7 @@ export default {
       try {
         const token = localStorage.getItem('token')
         const res = await axios.post(
-          '/api/v1/exams/generate',
+          '/api/fastapi/v1/exams/generate',
           {
             course_id: this.examConfig.courseId,
             knowledge_points: this.examConfig.knowledgePoints,
@@ -261,7 +261,7 @@ export default {
       if (!this.examData) return
       try {
         const res = await axios.post(
-          '/api/v1/exams/generate-pdf',
+          '/api/fastapi/v1/exams/generate-pdf',
           this.examData,
           {
             params: { include_analysis: includeAnalysis },
@@ -283,7 +283,7 @@ export default {
       if (!this.examData) return
       try {
         const res = await axios.post(
-          '/api/v1/exams/generate-word',
+          '/api/fastapiv1/exams/generate-word',
           this.examData,
           {
             params: { include_analysis: includeAnalysis },

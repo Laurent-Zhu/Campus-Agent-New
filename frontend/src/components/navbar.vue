@@ -26,6 +26,9 @@
                 <li>
                     <router-link to="/student/qa" :class="{active: $route.path === '/student/qa'}">在线学习助手</router-link>
                 </li>
+                <li>
+                    <router-link to="/admin/resources" :class="{active: $route.path === '/admin/resources'}">资源管理</router-link>
+                </li>
             </ul>
 
             <ul class="login">

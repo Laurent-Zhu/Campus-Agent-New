@@ -66,8 +66,8 @@ npm run dev
 ```
 3.2 启动后端服务：
 ```bash
-cd backend
-python manage.py runserver
+cd django_backend
+python manage.py runserver 8001
 ```
 需要DEEPSEEK_API_KEYS
 环境变量设置一下：

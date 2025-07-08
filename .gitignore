@@ -139,6 +139,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-django_backend/media/
-!django_backend/media/lesson_preparation/
+# don't ignore output floder, but ignore all files in it
+django_backend/media/lesson_preparation/*
 !django_backend/media/lesson_preparation/.gitkeep
