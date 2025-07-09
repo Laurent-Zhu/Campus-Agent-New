@@ -56,7 +56,7 @@
         this.loading = true;
         this.errorMessage = '';
         try {
-          const res = await axios.post('/api/v1/auth/login', {
+          const res = await axios.post('/api/fastapi/v1/auth/login', {
             username: this.form.username,
             password: this.form.password,
             role: this.form.role

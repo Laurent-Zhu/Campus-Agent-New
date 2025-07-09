@@ -63,7 +63,7 @@
         this.loading = true;
         this.errorMessage = '';
         try {
-          await axios.post('/api/v1/auth/register', {
+          await axios.post('/api/fastapi/v1/auth/register', {
             username: this.form.username,
             email: this.form.email,
             password: this.form.password,

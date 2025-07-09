@@ -13,10 +13,16 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': {
+      '/api/django': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/api\/django/, '/api'),
+      },
+      '/api/fastapi': {
         target: 'http://localhost:8000',
-        changeOrigin: true
-      }
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/api\/fastapi/, '/api'),
+      },
     }
   },
 

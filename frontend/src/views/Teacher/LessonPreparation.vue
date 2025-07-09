@@ -116,7 +116,7 @@ export default {
       formData.append('teaching_goals', this.teachingGoals);
 
       try {
-        const response = await axios.post('/api/teacher/lesson-preparation/', formData, {
+        const response = await axios.post('/api/django/teacher/lesson-preparation/', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }

@@ -14,6 +14,7 @@ import QuestionAnswer from "../views/Student/QuestionAnswer.vue";
 
 //学生端路由
 import ExerciseView from '../views/Student/ExerciseView.vue';
+import ResourceAdmin from '../views/Administor/ResourceAdmin.vue';
 
 const routes = [
   {
@@ -111,6 +112,19 @@ const routes = [
     path: "/student/qa",
     name: "QuestionAnswer",
     component: QuestionAnswer,
+  },
+
+  // 管理员端路由
+  // 课件资源管理模块
+  {
+    path: '/admin/resources',
+    name: 'ResourceAdmin',
+    component: ResourceAdmin,
+    meta: { 
+      title: '课件资源管理',
+      requiresAuth: true,
+      role: 'admin'
+    }
   }
 
   // Add other routes as needed
@@ -120,5 +134,19 @@ const router = createRouter({
   history: createWebHistory(),
   routes
 });
+
+// 权限校验，暂不开放
+// router.beforeEach((to, from, next) => { 
+//   const token = localStorage.getItem('token')
+//   const userRole = localStorage.getItem('role')// 假设角色存储在localStorage中
+
+//   if (to.meta.requiresAuth && !token) {
+//     next('/login') // 未登录，跳转到登录页面
+//   } else if (to.meta.role && userRole !== to.meta.role) {
+//     next('/forbidden') // 角色不匹配，跳转到无权限页
+//   } else {
+//     next() // 允许通过
+//   }
+// })
 
 export default router;
