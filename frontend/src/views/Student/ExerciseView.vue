@@ -41,6 +41,7 @@
       v-if="currentExercise"
       :exercise="currentExercise"
       @submit="handleAnswerSubmit"
+      :key="currentExercise.exercise_id"
     />
     
     <answer-evaluator
@@ -63,6 +64,8 @@ import AnswerEvaluator from '@/components/Student/AnswerEvaluator.vue'
 import HistoryPanel from '@/components/Student/HistoryPanel.vue'
 import { generateExercise, submitAnswer } from '@/api/Student/exerciseService'
 
+const TEMP_STUDENT_ID = '1'
+
 const exerciseTypes = [
   { value: 'knowledge', label: '知识点巩固' },
   { value: 'weakness', label: '弱点专项' },
@@ -78,7 +81,7 @@ const difficultyLevels = [
 const exerciseConfig = ref({
   type: 'knowledge',
   difficulty: 'medium',
-  knowledgePoint: null
+  knowledge_point_ids: [],
 })
 
 const currentExercise = ref(null)
@@ -86,28 +89,70 @@ const evaluationResult = ref(null)
 const exerciseHistory = ref([])
 const generating = ref(false)
 
+
+const handleTypeChange = (selectedType) => {
+  try {
+    // 更新当前选择的类型
+    exerciseConfig.value.type = selectedType
+    
+    // 可选：显示加载状态
+    generating.value = true
+    
+    // 类型变化后立即生成新题目
+    // await generateNewExercise()
+    
+  } catch (error) {
+    console.error('处理类型变化时出错:', error)
+    // 可以使用Element Plus的消息提示
+    ElMessage.error('切换练习类型失败: ' + error.message)
+  } finally {
+    generating.value = false
+  }
+}
+
+
+
 const generateNewExercise = async () => {
   try {
-    generating.value = true
-    const res = await generateExercise(exerciseConfig.value)
-    currentExercise.value = res.data
+    // generating.value = true
+
+     const payload = {
+      ...exerciseConfig.value,
+      student_id: TEMP_STUDENT_ID // 明确添加
+    }
+    
+    const response = await generateExercise(payload)
+
+    currentExercise.value = response
     evaluationResult.value = null
+
   } finally {
     generating.value = false
   }
 }
 
 const handleAnswerSubmit = async (answer) => {
-  const res = await submitAnswer({
-    exerciseId: currentExercise.value.id,
-    answer
-  })
-  evaluationResult.value = res.data
-  exerciseHistory.value.unshift({
-    exercise: currentExercise.value,
-    result: res.data,
-    timestamp: new Date()
-  })
+  try {
+    const res = await submitAnswer({
+      exerciseId: currentExercise.value.exercise_id, // 使用后端返回的字段名
+      studentId: TEMP_STUDENT_ID, // 临时测试ID
+      answer: answer
+    })
+
+    // 直接使用后端返回的数据结构（暂不转换字段名）
+    evaluationResult.value = res
+    
+    // 记录历史（保持简单结构）
+    exerciseHistory.value.unshift({
+      exercise: currentExercise.value,
+      result: res,
+      timestamp: new Date()
+    })
+
+  } catch (error) {
+    console.error('提交答案出错:', error)
+    ElMessage.error(error.response?.data?.error || '提交失败，请检查数据')
+  }
 }
 
 const handleRetryExercise = (exercise) => {
