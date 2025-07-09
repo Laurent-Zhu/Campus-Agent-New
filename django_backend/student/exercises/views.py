@@ -1,3 +1,5 @@
+from importlib import reload
+from unittest.mock import patch
 from django.shortcuts import render
 
 # Create your views here.
@@ -6,17 +8,21 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from student.exercises.models import ExerciseHistory
-from student.exercises.serializers import ExerciseHistorySerializer
+from student.exercises.models import Exercise, ExerciseHistory
+from student.exercises.serializers import ExerciseHistorySerializer, ExerciseSerializer
 from .services import exercise_generator, evaluator
+
 
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
+
 class GenerateExerciseView(APIView):
+    serializer_class = ExerciseSerializer
+
     def post(self, request):
         data = request.data
-        
+            
         try:
             # 1. 验证必要参数
             if 'student_id' not in data:
@@ -31,7 +37,8 @@ class GenerateExerciseView(APIView):
                 difficulty=data.get('difficulty'),
                 knowledge_point_ids=data.get('knowledge_point_ids', [])
             )
-
+            
+       
             # 3. 成功返回题目数据
             return Response({
                 'exercise_id': exercise.id,
@@ -57,6 +64,8 @@ class GenerateExerciseView(APIView):
 
 
 class EvaluateAnswerView(APIView):
+    serializer_class = ExerciseHistorySerializer
+
     def post(self, request):
         result = evaluator.evaluate_answer(
             exercise_id=request.data['exercise_id'],
@@ -66,6 +75,8 @@ class EvaluateAnswerView(APIView):
         return Response(result)
     
 class ExerciseHistoryView(APIView):
+    serializer_class = ExerciseHistorySerializer 
+
     def get(self, request, student_id):
         try:
             # 验证学生是否存在
@@ -92,6 +103,8 @@ class ExerciseHistoryView(APIView):
 
 
 class SubmitExerciseView(APIView):
+    serializer_class = ExerciseHistorySerializer
+
     """提交练习并记录历史"""
     def post(self, request):
         # 1. 验证必要参数
@@ -110,6 +123,9 @@ class SubmitExerciseView(APIView):
                 student_id=request.data['student_id'],
                 student_answer=request.data['student_answer']
             )
+
+            # print("评估结果:", evaluation_result)
+            feedback = evaluation_result.get('feedback', '暂无反馈')
             
             # 3. 处理评估错误
             if 'error' in evaluation_result:
@@ -123,7 +139,7 @@ class SubmitExerciseView(APIView):
                 exercise_id=request.data['exercise_id'],
                 submitted_answer=request.data['student_answer'],
                 is_correct=evaluation_result['is_correct'],
-                feedback=evaluation_result.get('feedback', '')
+                feedback=feedback
             )
             
             # 5. 成功响应
