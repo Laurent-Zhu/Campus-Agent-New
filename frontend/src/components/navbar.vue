@@ -6,41 +6,44 @@
                 <router-link to="/"><img src="../assets/img/xiaobai_answer_avatar.webp" alt="logo" class="logo-img"></router-link>
             </div>
         
-            <!-- 导航菜单 - 根据用户角色动态显示 -->
-            <ul class="menu" v-if="isAuthenticated">
-                <!-- 公共路由 -->
+            <!-- 导航菜单 -->
+            <ul class="menu">
+                <!-- 公共路由（始终显示） -->
                 <li>
                     <router-link to="/" :class="{active: $route.path === '/'}">首页</router-link>
                 </li>
                 
-                <!-- 教师专属路由 -->
-                <template v-if="userRole === 'teacher'">
-                    <li>
-                        <router-link to="/teacher/lesson-preparation" :class="{active: $route.path === '/teacher/lesson-preparation'}">备课与设计</router-link>
-                    </li>
-                    <li>
-                        <router-link to="/teacher/exam-generator" :class="{active: $route.path === '/teacher/exam-generator'}">考核内容生成</router-link>
-                    </li>
-                    <li>
-                        <router-link to="/teacher/analytics" :class="{active: $route.path === '/teacher/analytics'}">学情分析</router-link>
-                    </li>
-                </template>
-                
-                <!-- 学生专属路由 -->
-                <template v-else-if="userRole === 'student'">
-                    <li>
-                        <router-link to="/student/exercise" :class="{active: $route.path === '/student/exercise'}">实时测评助手</router-link>
-                    </li>
-                    <li>
-                        <router-link to="/student/qa" :class="{active: $route.path === '/student/qa'}">在线学习助手</router-link>
-                    </li>
-                </template>
-                
-                <!-- 管理员专属路由 -->
-                <template v-if="userRole === 'admin'">
-                    <li>
-                        <router-link to="/admin/resources" :class="{active: $route.path === '/admin/resources'}">资源管理</router-link>
-                    </li>
+                <!-- 动态路由（根据登录状态和角色显示） -->
+                <template v-if="isAuthenticated">
+                    <!-- 教师专属路由 -->
+                    <template v-if="userRole === 'teacher'">
+                        <li>
+                            <router-link to="/teacher/lesson-preparation" :class="{active: $route.path === '/teacher/lesson-preparation'}">备课与设计</router-link>
+                        </li>
+                        <li>
+                            <router-link to="/teacher/exam-generator" :class="{active: $route.path === '/teacher/exam-generator'}">考核内容生成</router-link>
+                        </li>
+                        <li>
+                            <router-link to="/teacher/analytics" :class="{active: $route.path === '/teacher/analytics'}">学情分析</router-link>
+                        </li>
+                    </template>
+                    
+                    <!-- 学生专属路由 -->
+                    <template v-else-if="userRole === 'student'">
+                        <li>
+                            <router-link to="/student/exercise" :class="{active: $route.path === '/student/exercise'}">实时测评助手</router-link>
+                        </li>
+                        <li>
+                            <router-link to="/student/qa" :class="{active: $route.path === '/student/qa'}">在线学习助手</router-link>
+                        </li>
+                    </template>
+                    
+                    <!-- 管理员专属路由 -->
+                    <template v-if="userRole === 'admin'">
+                        <li>
+                            <router-link to="/admin/resources" :class="{active: $route.path === '/admin/resources'}">资源管理</router-link>
+                        </li>
+                    </template>
                 </template>
             </ul>
 
