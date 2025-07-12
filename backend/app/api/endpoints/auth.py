@@ -20,6 +20,7 @@ class LoginRequest(BaseModel):
 
 @router.post("/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
+    print("开始处理注册请求\n")
     user = db.query(User).filter((User.username == request.username) | (User.email == request.email)).first()
     if user:
         raise HTTPException(status_code=400, detail="用户名或邮箱已存在")
@@ -40,4 +41,10 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(request.password, user.hashed_password) or user.role != request.role:
         raise HTTPException(status_code=401, detail="用户名或密码或身份错误")
     token = create_access_token(user.id, user.role)
+
+    # # 调试输出 Token
+    # print("="*50)
+    # print(f"DEBUG TOKEN: {token}")  # 控制台直接打印 Token
+    # print("="*50)
+
     return {"access_token": token, "token_type": "bearer"}

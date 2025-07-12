@@ -85,10 +85,14 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 
 def load_knowledge_base(directory: str):
+    # print(f"扫描目录: {os.path.abspath(directory)}")  # 添加这行
+    # print(f"目录内容: {os.listdir(directory)}")      # 添加这行
     """加载知识库中的 .docx 文件"""
     documents = []
     for filename in os.listdir(directory):
+        # print(f"正在处理文件: {filename}")
         if filename.endswith(".docx"):
+            # print(f"加载 .docx 文件: {filename}") 
             loader = UnstructuredWordDocumentLoader(os.path.join(directory, filename))
             doc = loader.load()
             documents.extend(doc)
@@ -110,6 +114,7 @@ def build_vector_store(documents):
 
 def initialize_knowledge_base():
     """初始化知识库"""
+    # print("=== 初始化知识库（调试）===")
     knowledge_directory = "./knowledge/mooc"  # 知识库目录
     documents = load_knowledge_base(knowledge_directory)
     vector_store = build_vector_store(documents)

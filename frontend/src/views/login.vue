@@ -37,9 +37,32 @@
   
   <script>
   import axios from 'axios';
+  import { useAuthStore } from '@/stores/auth'; // 导入 Pinia store
+  import { useRouter } from 'vue-router';
   
   export default {
     name: 'Login',
+    setup() {
+      const authStore = useAuthStore();
+      const router = useRouter();
+    
+      const redirectByRole = (role) => {
+        const routes = {
+          student: '/student/exercise',
+          teacher: '/teacher/exam-generator',
+          admin: '/admin/resources'
+        };
+      router.push(routes[role] || '/');
+    };
+
+      return { 
+      authStore, 
+      router,
+      redirectByRole  // 将方法暴露给模板
+    };
+
+    },
+
     data() {
       return {
         form: {
@@ -56,21 +79,39 @@
         this.loading = true;
         this.errorMessage = '';
         try {
+          // 1.调用登录接口
           const res = await axios.post('/api/fastapi/v1/auth/login', {
             username: this.form.username,
             password: this.form.password,
             role: this.form.role
           });
+          //2.存储Token到本地
+          const token = res.data.access_token;
           localStorage.setItem('token', res.data.access_token);
-          this.$router.push('/teacher/exam-generator');
+
+          // 3.解码JWT获取用户信息
+          const payload = JSON.parse(atob(token.split('.')[1]));
+
+          // 4.更新Pinia store
+          this.authStore.login({
+            username: payload.sub,  // 通常sub字段是用户名/用户ID
+            role: payload.role      // 从JWT中获取角色
+          });
+
+          // 5.根据角色跳转至对应路由
+           this.redirectByRole(payload.role);
+
         } catch (e) {
           this.errorMessage = e?.response?.data?.detail || '登录失败';
+          console.error('登录错误:', e);  // 调试用
         } finally {
           this.loading = false;
         }
       }
     }
   };
+
+
   </script>
   
   <style scoped>

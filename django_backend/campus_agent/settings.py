@@ -62,6 +62,13 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,  # 支持文件上传
 }
 
+# JWT配置与FastAPI一致
+FASTAPI_JWT = {
+    'SECRET_KEY': 'your-secret-key-here',  # 必须与 FastAPI 的 SECRET_KEY 相同
+    'ALGORITHM': 'HS256',                 # 默认 HS256，如果 FastAPI 用了其他算法需要修改
+    'ACCESS_TOKEN_EXPIRE_MINUTES': 60 * 24 * 7,  # 过期时间（分钟）
+}    
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
