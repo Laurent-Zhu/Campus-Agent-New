@@ -1,81 +1,90 @@
-import axios from 'axios'
+// src/api/student/exerciseService.js
+import axios from '@/api/axios'
 
-const API_BASE = 'http://localhost:8001'
 
-export const generateExercise = async (config) => {
 
-  const payload = {
-    student_id: String(config.student_id), // 注意后端使用下划线命名
-    difficulty: config.difficulty || 'medium', // 默认中等难度
-    knowledge_point_ids: config.knowledgePointIds || [] // 确保是数组
-  }
 
-  console.log('完整请求数据:', payload)
-
+/**
+ * 生成练习题
+ * @param {Object} config - 配置参数
+ * @param {string|number} config.studentId - 学生ID
+ * @param {string} [config.difficulty='medium'] - 难度级别
+ * @param {Array} [config.knowledgePointIds=[]] - 知识点ID数组
+ * @returns {Promise<Object>} 题目数据
+ */
+export const generateExercise = async ({ studentId, difficulty = 'medium', knowledgePointIds = [] }) => {
   try {
-    const response = await axios.post(
-      `${API_BASE}/api/student/exercises/generate/`,
-      payload
-    );
+    const response = await axios.post('/student/exercises/generate/', {
+      student_id: String(studentId),
+      difficulty,
+      knowledge_point_ids: knowledgePointIds.map(String) // 确保所有ID都是字符串
+    })
 
-    console.log('响应数据:', response.data)
-
+    console.debug('[API] 题目生成成功:', response.data)
     return response.data
   } catch (error) {
-    console.error('生成题目失败:', error.response?.data || error.message)
+    console.error('[API] 生成题目失败:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      error: error.response?.data || error.message
+    })
     throw error
   }
 }
 
 
-export const submitAnswer = async (data) => {
-  const payload = {
-    exercise_id: String(data.exerciseId),  // 转为下划线命名
-    student_id: String(data.studentId),   // 添加必填字段
-    student_answer: String(data.answer)   // 明确字段名
-  }
 
+
+
+/**
+ * 提交答案
+ * @param {Object} params - 提交参数
+ * @param {string|number} params.exerciseId - 题目ID
+ * @param {string|number} params.studentId - 学生ID
+ * @param {string} params.answer - 学生答案
+ * @param {number} [params.timeSpent=0] - 答题耗时(秒)
+ * @param {Array} [params.usedHints=[]] - 使用的提示索引
+ * @returns {Promise<Object>} 评估结果
+ */
+export const submitAnswer = async ({ exerciseId, studentId, answer, timeSpent = 0, usedHints = [] }) => {
   try {
-    const response = await axios.post(
-      `${API_BASE}/api/student/exercises/evaluate/`,
-      payload,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${localStorage.getItem('token')}` // 添加认证
-        }
-      }
-    )
+    const response = await axios.post('/student/exercises/submit/', {
+      exercise_id: String(exerciseId),
+      student_id: String(studentId),
+      student_answer: String(answer),
+      time_spent: Number(timeSpent),
+      used_hints: usedHints.map(Number) // 确保提示索引是数字
+    })
+
     return response.data
   } catch (error) {
-    console.error('提交答案错误:', {
+    console.error('[API] 提交答案失败:', {
+      url: '/student/exercises/submit/',
       status: error.response?.status,
-      data: error.response?.data
+      error: error.response?.data || error.message
     })
-    throw error // 抛出错误供上层处理
+    throw error
   }
 }
 
 
 
-// Mock 数据生成器（开发用）
-export const mockGenerateExercise = () => {
-  return {
-    exercise_id: Math.random().toString(36).substring(2),
-    question: '请计算：2 × (3 + 5) = ?',
-    options: ['10', '16', '18', '20'],
-    hint: '记得先计算括号内的内容',
-    difficulty: 'easy',
-    knowledge_points: ['四则运算']
-  }
-}
 
-export const mockSubmitAnswer = () => {
-  return {
-    isCorrect: Math.random() > 0.3,
-    userAnswer: '16',
-    correctAnswer: '16',
-    analysis: '本题考查基本的四则运算规则...',
-    suggestion: '建议多做括号优先的练习题...'
+
+/**
+ * 获取历史记录
+ * @param {string|number} studentId - 学生ID
+ * @returns {Promise<Array>} 历史记录数组
+ */
+export const getHistory = async (studentId) => {
+  try {
+    const response = await axios.get(`/student/history/${studentId}/`)
+    return response.data
+  } catch (error) {
+    console.error('[API] 获取历史记录失败:', {
+      studentId,
+      error: error.response?.data || error.message
+    })
+    throw error
   }
 }

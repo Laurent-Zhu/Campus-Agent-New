@@ -86,6 +86,9 @@ class GenerateExerciseView(APIView):
             )
 
 
+
+
+
 class EvaluateAnswerView(APIView):
     serializer_class = ExerciseAttemptSerializer
 
@@ -152,7 +155,7 @@ class ExerciseHistoryView(APIView):
             
             attempts = ExerciseAttempt.objects.filter(
                 student_id=student_id
-            ).select_related('exercise').order_by('-created_at')[:100]
+            ).select_related('exercise').order_by('-created_at','-id')[:100]
             
             serializer = ExerciseAttemptSerializer(attempts, many=True)
             return Response(serializer.data)

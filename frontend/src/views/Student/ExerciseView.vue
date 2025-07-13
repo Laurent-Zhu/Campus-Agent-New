@@ -32,9 +32,14 @@
         type="primary" 
         @click="generateNewExercise"
         :loading="generating"
+        :disabled="!exerciseConfig.type"
       >
         生成题目
       </el-button>
+    </div>
+
+    <div v-if="errorMessage" class="error-message">
+      <el-alert :title="errorMessage" type="error" show-icon />
     </div>
 
     <exercise-generator
@@ -42,6 +47,7 @@
       :exercise="currentExercise"
       @submit="handleAnswerSubmit"
       :key="currentExercise.exercise_id"
+      :loading="submitting"
     />
     
     <answer-evaluator
@@ -59,12 +65,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { computed } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 import ExerciseGenerator from '@/components/Student/ExerciseGenerator.vue'
 import AnswerEvaluator from '@/components/Student/AnswerEvaluator.vue'
 import HistoryPanel from '@/components/Student/HistoryPanel.vue'
-import { generateExercise, submitAnswer } from '@/api/Student/exerciseService'
+import { generateExercise, submitAnswer, getHistory } from '@/api/Student/exerciseService'
 
-const TEMP_STUDENT_ID = '1'
+const authStore = useAuthStore()
+const studentId = computed(() => authStore.user?.id || null) // 获取真实学生ID
 
 const exerciseTypes = [
   { value: 'knowledge', label: '知识点巩固' },
@@ -88,80 +97,104 @@ const currentExercise = ref(null)
 const evaluationResult = ref(null)
 const exerciseHistory = ref([])
 const generating = ref(false)
-
+const submitting = ref(false)
+const errorMessage = ref('')
 
 const handleTypeChange = (selectedType) => {
-  try {
-    // 更新当前选择的类型
-    exerciseConfig.value.type = selectedType
-    
-    // 可选：显示加载状态
-    generating.value = true
-    
-    // 类型变化后立即生成新题目
-    // await generateNewExercise()
-    
-  } catch (error) {
-    console.error('处理类型变化时出错:', error)
-    // 可以使用Element Plus的消息提示
-    ElMessage.error('切换练习类型失败: ' + error.message)
-  } finally {
-    generating.value = false
-  }
+  exerciseConfig.value.type = selectedType
+  // Reset error when changing type
+  errorMessage.value = ''
 }
-
-
 
 const generateNewExercise = async () => {
   try {
-    // generating.value = true
+    const studentId = authStore.studentId;
+    if (!studentId) {
+      throw new Error('未获取到学生ID，请先登录');
+    }
 
-     const payload = {
-      ...exerciseConfig.value,
-      student_id: TEMP_STUDENT_ID // 明确添加
+    generating.value = true
+    errorMessage.value = ''
+    
+    const payload = {
+      studentId: studentId,
+      difficulty: exerciseConfig.value.difficulty,
+      knowledgePointIds: exerciseConfig.value.knowledge_point_ids
     }
     
     const response = await generateExercise(payload)
-
     currentExercise.value = response
     evaluationResult.value = null
-
+    
+    // Load history after generating new exercise
+    await loadHistory()
+    
+  } catch (error) {
+    errorMessage.value = '生成题目失败: ' + (error.response?.data?.error || error.message)
+    console.error('生成题目出错:', error)
   } finally {
     generating.value = false
   }
 }
 
-const handleAnswerSubmit = async (answer) => {
+const handleAnswerSubmit = async (submissionData) => {
   try {
+    const studentId = authStore.studentId;
+    
+    if (!studentId) {
+      throw new Error('未获取到学生ID，请先登录');
+    }
+    
+    submitting.value = true
+    errorMessage.value = ''
+    
+    const { answer, timeSpent, usedHints } = submissionData
+    
     const res = await submitAnswer({
-      exerciseId: currentExercise.value.exercise_id, // 使用后端返回的字段名
-      studentId: TEMP_STUDENT_ID, // 临时测试ID
-      answer: answer
+      exerciseId: currentExercise.value.exercise_id,
+      studentId: studentId,
+      answer,
+      timeSpent: timeSpent || 0,
+      usedHints: usedHints || []
     })
 
-    // 直接使用后端返回的数据结构（暂不转换字段名）
     evaluationResult.value = res
     
-    // 记录历史（保持简单结构）
-    exerciseHistory.value.unshift({
-      exercise: currentExercise.value,
-      result: res,
-      timestamp: new Date()
-    })
-
+    // Update history after submission
+    await loadHistory()
+    
   } catch (error) {
+    errorMessage.value = '提交答案失败: ' + (error.response?.data?.error || error.message)
     console.error('提交答案出错:', error)
-    ElMessage.error(error.response?.data?.error || '提交失败，请检查数据')
+  } finally {
+    submitting.value = false
+  }
+}
+
+const loadHistory = async () => {
+  try {
+    const studentId = authStore.studentId;
+    
+    if (!studentId) {
+      throw new Error('未获取到学生ID，请先登录');
+    }
+
+    const history = await getHistory(studentId)
+    exerciseHistory.value = history
+  } catch (error) {
+    console.error('加载历史记录失败:', error)
+    // Don't show error to user for history loading
   }
 }
 
 const handleRetryExercise = (exercise) => {
   currentExercise.value = exercise
   evaluationResult.value = null
+  errorMessage.value = ''
 }
 
-onMounted(() => {
-  generateNewExercise()
+onMounted(async () => {
+  await generateNewExercise()
 })
 </script>
 
@@ -176,5 +209,9 @@ onMounted(() => {
   margin-bottom: 20px;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+.error-message {
+  margin-bottom: 20px;
 }
 </style>

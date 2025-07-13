@@ -1,118 +1,70 @@
 <template>
-    <div class="login-container">
-      <h1>用户登录</h1>
-      <div class="login-card">
-        <el-form :model="form" @submit.prevent="handleLogin" label-position="top">
-          <h2>登录信息</h2>
-          <el-form-item label="用户名">
-            <el-input v-model="form.username" autocomplete="username" />
-          </el-form-item>
-          <el-form-item label="密码">
-            <el-input
-              v-model="form.password"
-              type="password"
-              autocomplete="current-password"
-            />
-          </el-form-item>
-          <el-form-item label="身份">
-            <el-select v-model="form.role" placeholder="请选择身份">
-              <el-option label="学生" value="student"></el-option>
-              <el-option label="教师" value="teacher"></el-option>
-              <el-option label="管理员" value="admin"></el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <button
-              @click="handleLogin"
-              :disabled="loading"
-            >
-              {{ loading ? '正在登录...' : '登录' }}
-            </button>
-          </el-form-item>
-        </el-form>
-        <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-      </div>
+  <div class="login-container">
+    <h1>用户登录</h1>
+    <div class="login-card">
+      <el-form 
+        :model="form" 
+        @submit.prevent="handleLogin" 
+        label-position="top"
+      >
+        <h2>登录信息</h2>
+        <el-form-item label="用户名">
+          <el-input v-model="form.username" autocomplete="username" />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input
+            v-model="form.password"
+            type="password"
+            autocomplete="current-password"
+          />
+        </el-form-item>
+        <el-form-item label="身份">
+          <el-select v-model="form.role" placeholder="请选择身份">
+            <el-option label="学生" value="student"></el-option>
+            <el-option label="教师" value="teacher"></el-option>
+            <el-option label="管理员" value="admin"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button
+            type="primary"
+            @click="handleLogin"
+            :loading="authStore.loading"
+            native-type="submit"
+          >
+            登录
+          </el-button>
+        </el-form-item>
+      </el-form>
+      <p v-if="authStore.error" class="error-message">
+        {{ authStore.error }}
+      </p>
     </div>
-  </template>
-  
-  <script>
-  import axios from 'axios';
-  import { useAuthStore } from '@/stores/auth'; // 导入 Pinia store
-  import { useRouter } from 'vue-router';
-  
-  export default {
-    name: 'Login',
-    setup() {
-      const authStore = useAuthStore();
-      const router = useRouter();
-    
-      const redirectByRole = (role) => {
-        const routes = {
-          student: '/student/exercise',
-          teacher: '/teacher/exam-generator',
-          admin: '/admin/resources'
-        };
-      router.push(routes[role] || '/');
-    };
+  </div>
+</template>
 
-      return { 
-      authStore, 
-      router,
-      redirectByRole  // 将方法暴露给模板
-    };
+<script setup>
+import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
-    },
+const authStore = useAuthStore();
+const form = ref({
+  username: '',
+  password: '',
+  role: ''
+});
 
-    data() {
-      return {
-        form: {
-          username: '',
-          password: '',
-          role: ''
-        },
-        loading: false,
-        errorMessage: ''
-      };
-    },
-    methods: {
-      async handleLogin() {
-        this.loading = true;
-        this.errorMessage = '';
-        try {
-          // 1.调用登录接口
-          const res = await axios.post('/api/fastapi/v1/auth/login', {
-            username: this.form.username,
-            password: this.form.password,
-            role: this.form.role
-          });
-          //2.存储Token到本地
-          const token = res.data.access_token;
-          localStorage.setItem('token', res.data.access_token);
-
-          // 3.解码JWT获取用户信息
-          const payload = JSON.parse(atob(token.split('.')[1]));
-
-          // 4.更新Pinia store
-          this.authStore.login({
-            username: payload.sub,  // 通常sub字段是用户名/用户ID
-            role: payload.role      // 从JWT中获取角色
-          });
-
-          // 5.根据角色跳转至对应路由
-           this.redirectByRole(payload.role);
-
-        } catch (e) {
-          this.errorMessage = e?.response?.data?.detail || '登录失败';
-          console.error('登录错误:', e);  // 调试用
-        } finally {
-          this.loading = false;
-        }
-      }
+const handleLogin = async () => {
+  try {
+    const success = await authStore.login(form.value);
+    if (!success && authStore.error) {
+      ElMessage.error(authStore.error); // 使用Element Plus显示错误
     }
-  };
-
-
-  </script>
+  } catch (err) {
+    console.error('登录异常:', err);
+  }
+};
+</script>
   
   <style scoped>
   .login-container {
