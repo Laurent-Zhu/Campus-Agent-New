@@ -2,7 +2,7 @@ from django.db.models import Q
 import random
 import json
 from django.core.exceptions import ObjectDoesNotExist
-from student.exercises.models import Exercise, StudentExerciseLog, StudentProfile, KnowledgePoint
+from student.exercises.models import Exercise, ExerciseAttempt, StudentProfile, KnowledgePoint
 from django.contrib.auth import get_user_model
 from .llm_service import LLMService
 
@@ -36,9 +36,9 @@ def generate_personalized_exercise(student_id, difficulty=None, knowledge_point_
     if not difficulty:
         try:
             profile = StudentProfile.objects.get(user=student)
-            if profile.average_score < 60:
+            if profile.correct_rate < 0.6:  # 使用正确率代替average_score
                 difficulty = 'easy'
-            elif profile.average_score < 80:
+            elif profile.correct_rate < 0.8:
                 difficulty = 'medium'
             else:
                 difficulty = 'hard'
@@ -54,14 +54,20 @@ def generate_personalized_exercise(student_id, difficulty=None, knowledge_point_
         profile = student.studentprofile
         student_data = {
             "id": student_id,
-            "average_score": profile.average_score,
+            "correct_rate": profile.correct_rate,
             "weak_points": list(profile.weak_knowledge_points.values_list('name', flat=True))
         }
     except StudentProfile.DoesNotExist:
-        student_data = {"id": student_id}
+         # 如果不存在学生档案，创建默认档案
+        profile = StudentProfile.objects.create(user=student)
+        student_data = {
+            "id": student_id,
+            "correct_rate": 0.5,  # 默认正确率
+            "weak_points": []
+        }
 
     # 5. 优先尝试LLM生成题目
-    if _should_use_llm(student_data):  # 判断是否满足LLM生成条件
+    if _should_use_llm(student_data):
         try:
             llm_result = llm.generate_question(
                 student_data=student_data,
@@ -70,17 +76,19 @@ def generate_personalized_exercise(student_id, difficulty=None, knowledge_point_
             )
             
             if "error" not in llm_result:
-                # 创建并返回新题目
+                # 创建并返回新题目（适配新的Exercise模型）
                 return Exercise.objects.create(
-                    question=llm_result["question"],
+                    title=llm_result.get("title", "AI生成题目"),
+                    content=llm_result["question"],
+                    question_type=llm_result.get("question_type", "mc"),
                     difficulty=difficulty,
                     answer={
-                        "options": llm_result["options"],
-                        "correct_answer": llm_result["answer"],
-                        "explanation": llm_result.get("explanation", ""),
-                        "generated_by": "llm"  # 标记生成来源
+                        "reference_answer": llm_result["answer"],
+                        "options": llm_result.get("options", []),
+                        "explanation": llm_result.get("explanation", "")
                     },
-                    is_custom=True  # 标记为动态生成题目
+                    explanation=llm_result.get("explanation", ""),
+                    is_active=True
                 )
         except Exception as e:
             print(f"[LLM Fallback] 生成失败: {str(e)}")
@@ -102,14 +110,14 @@ def _get_fallback_exercise(student_id, difficulty, knowledge_point_ids):
     从数据库获取题目降级方案
     """
     # 1. 排除最近做过的题目（最近10条）
-    recent_exercises = StudentExerciseLog.objects.filter(
+    recent_exercises = ExerciseAttempt.objects.filter(
         student_id=student_id
-    ).values_list('exercise_id', flat=True)[:10]
+    ).order_by('-created_at').values_list('exercise_id', flat=True)[:10]
     
     # 2. 构建基础查询
     queryset = Exercise.objects.filter(
         difficulty__iexact=difficulty,
-        is_custom=False  # 只使用预置题目
+        is_active=True  # 只使用活跃题目
     ).exclude(id__in=recent_exercises)
     
     # 3. 应用知识点过滤
@@ -133,7 +141,7 @@ def _get_fallback_exercise(student_id, difficulty, knowledge_point_ids):
     if not queryset.exists():
         queryset = Exercise.objects.filter(
             difficulty__iexact=difficulty,
-            is_custom=False
+            is_active=True
         )
         if knowledge_point_ids:
             queryset = queryset.filter(

@@ -110,7 +110,7 @@ class HistoryViewIntegrationTest(APITestCase):
         ExerciseHistory.objects.create(
             student=self.student,
             exercise=self.exercise,
-            submitted_answer={"answer": "42"},
+            student_answer={"answer": "42"},
             is_correct=True
         )
 

@@ -132,7 +132,7 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("submitted_answer", models.JSONField()),
+                ("student_answer", models.JSONField()),
                 ("is_correct", models.BooleanField()),
                 ("feedback", models.TextField()),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
