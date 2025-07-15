@@ -108,7 +108,9 @@ const handleTypeChange = (selectedType) => {
 
 const generateNewExercise = async () => {
   try {
+    // 从Pinia store获取计算属性
     const studentId = authStore.studentId;
+    
     if (!studentId) {
       throw new Error('未获取到学生ID，请先登录');
     }
@@ -122,6 +124,8 @@ const generateNewExercise = async () => {
       knowledgePointIds: exerciseConfig.value.knowledge_point_ids
     }
     
+    console.log('发送请求数据:', payload);
+
     const response = await generateExercise(payload)
     currentExercise.value = response
     evaluationResult.value = null

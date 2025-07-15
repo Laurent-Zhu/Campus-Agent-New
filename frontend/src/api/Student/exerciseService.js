@@ -1,6 +1,7 @@
 // src/api/student/exerciseService.js
 import axios from '@/api/axios'
-
+import { v4 as uuidv4 } from 'uuid';
+import { useAuthStore } from '@/stores/auth'; 
 
 
 
@@ -12,27 +13,55 @@ import axios from '@/api/axios'
  * @param {Array} [config.knowledgePointIds=[]] - 知识点ID数组
  * @returns {Promise<Object>} 题目数据
  */
-export const generateExercise = async ({ studentId, difficulty = 'medium', knowledgePointIds = [] }) => {
+export const generateExercise = async ({ 
+  studentId, 
+  difficulty = 'medium', 
+  knowledgePointIds = [] 
+}) => {
   try {
-    const response = await axios.post('/student/exercises/generate/', {
+    // 1. 单独验证令牌是否存在（关键调试）
+  const authStore = useAuthStore();
+  console.debug('[exerciseService] 调用generateExercise时的令牌信息:', {
+    token: authStore.token ? authStore.token.substring(0, 20) + '...' : '无令牌',
+    tokenExists: !!authStore.token,
+    userRole: authStore.user?.role // 同时打印用户角色，确认是否为学生
+  });
+
+    // 请求数据准备
+    const requestData = {
       student_id: String(studentId),
       difficulty,
-      knowledge_point_ids: knowledgePointIds.map(String) // 确保所有ID都是字符串
+      knowledge_point_ids: knowledgePointIds.map(String)
+    }
+
+    // 发送请求 
+    const response = await axios.post('/student/exercises/generate/', requestData, {
+      timeout: 30000  // 延长超时时间到30秒
     })
 
     console.debug('[API] 题目生成成功:', response.data)
     return response.data
+
   } catch (error) {
-    console.error('[API] 生成题目失败:', {
+    const errorInfo = {
       url: error.config?.url,
+      method: error.config?.method,
       status: error.response?.status,
-      error: error.response?.data || error.message
-    })
+      error: error.response?.data || error.message,
+      timestamp: new Date().toISOString()
+    }
+    
+    console.error('[API] 生成题目失败:', errorInfo)
+    
+    // 如果是401错误，可以在这里添加重定向逻辑
+    if (error.response?.status === 401) {
+      console.warn('检测到未授权访问，可能需要重新登录')
+      // 可以在这里触发登出操作或跳转到登录页
+    }
+    
     throw error
   }
 }
-
-
 
 
 

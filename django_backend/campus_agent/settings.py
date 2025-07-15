@@ -64,26 +64,50 @@ SPECTACULAR_SETTINGS = {
 
 # JWT配置与FastAPI一致
 FASTAPI_JWT = {
-    'SECRET_KEY': 'your-secret-key-here',  # 必须与 FastAPI 的 SECRET_KEY 相同
-    'ALGORITHM': 'HS256',                 # 默认 HS256，如果 FastAPI 用了其他算法需要修改
-    'ACCESS_TOKEN_EXPIRE_MINUTES': 60 * 24 * 7,  # 过期时间（分钟）
+    'SECRET_KEY': "your-production-secret-key",  # 用于签名和验证 JWT 的密钥
+    'ALGORITHM': 'HS256',                 # JWT 使用的签名算法
+    'USER_ID_FIELD': 'sub',  # JWT payload 中存储用户ID的字段名
+    'USER_ID_CLAIM': 'sub',  # 声明从哪个字段获取用户身份信息
+    'ROLE_CLAIM': 'role',    # 指定 JWT payload 中存储用户角色的字段名
+    'AUTH_HEADER_TYPES': ('Bearer',),  # 指定认证头类型
 }    
 
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    'core.middleware.fastapi_auth.FastAPIAuthMiddleware',
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True # 允许所有源访问
 ROOT_URLCONF = "campus_agent.urls"
+
+# 允许访问的请求头
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-request-id",  # 关键：允许前端发送的 x-request-id 头
+]
+
+FASTAPI_AUTH_VALIDATE_URL = 'http://localhost:8000/api/v1/auth/validate'  # FastAPI的token验证接口
+
+
+
+
 
 TEMPLATES = [
     {
@@ -157,3 +181,65 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'debug.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'core': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'student': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'student.exercises': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'teacher': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
+
+

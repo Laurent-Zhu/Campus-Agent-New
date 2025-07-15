@@ -21,8 +21,12 @@ export const useAuthStore = defineStore('auth', () => {
   
   // 学生ID计算属性
   const studentId = computed(() => {
-    return isStudent.value ? user.value?.id : null;
+    if (!isStudent.value || !user.value?.id) return null;
+    const id = Number(user.value.id);
+    return isNaN(id) ? null : id;
   });
+
+  
 
   // 解码JWT token
   const decodeToken = (token) => {

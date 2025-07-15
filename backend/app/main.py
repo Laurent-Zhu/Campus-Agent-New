@@ -44,6 +44,7 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
+
 # 配置CORS
 app.add_middleware(
     CORSMiddleware,
@@ -59,11 +60,16 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/exams",
     tags=["exam"]
 )
+
+# 注册 /api/v1/auth 路由
 app.include_router(
     auth.router,
     prefix=f"{settings.API_V1_STR}/auth",
     tags=["auth"]
 )
+
+
+
 
 from backend.app.api.endpoints.student import router as student_router
 

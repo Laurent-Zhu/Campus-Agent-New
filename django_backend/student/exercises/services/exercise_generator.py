@@ -14,7 +14,7 @@ def generate_personalized_exercise(student_id, difficulty=None, knowledge_point_
     生成个性化练习题（优先LLM生成，失败时降级到数据库）
     
     参数:
-        student_id: 学生ID
+        student_id: 学生ID（String/Int）
         difficulty: 可选难度 ('easy', 'medium', 'hard')
         knowledge_point_ids: 可选知识点ID列表
         
@@ -24,11 +24,22 @@ def generate_personalized_exercise(student_id, difficulty=None, knowledge_point_
     异常:
         ValueError: 参数无效或没有可用题目
     """
+
+    print(f"\n====== 开始生成题目调试信息 ======")
+    print(f"传入参数: student_id={student_id}({type(student_id)}), difficulty={difficulty}, knowledge_point_ids={knowledge_point_ids}")
+
+
     # 1. 验证参数
     valid_difficulties = ['easy', 'medium', 'hard']
     
     try:
-        student = User.objects.get(id=student_id)
+
+        try:
+            student_id_int = int(student_id)
+        except (ValueError, TypeError):
+            raise ValueError(f"无效的用户ID格式: {student_id}")
+
+        student = User.objects.get(id=student_id_int)
     except User.DoesNotExist:
         raise ValueError(f"用户ID {student_id} 不存在")
     
@@ -53,7 +64,7 @@ def generate_personalized_exercise(student_id, difficulty=None, knowledge_point_
     try:
         profile = student.studentprofile
         student_data = {
-            "id": student_id,
+            "id": student_id_int,
             "correct_rate": profile.correct_rate,
             "weak_points": list(profile.weak_knowledge_points.values_list('name', flat=True))
         }
@@ -61,7 +72,7 @@ def generate_personalized_exercise(student_id, difficulty=None, knowledge_point_
          # 如果不存在学生档案，创建默认档案
         profile = StudentProfile.objects.create(user=student)
         student_data = {
-            "id": student_id,
+            "id": student_id_int,
             "correct_rate": 0.5,  # 默认正确率
             "weak_points": []
         }
@@ -95,7 +106,7 @@ def generate_personalized_exercise(student_id, difficulty=None, knowledge_point_
 
     # 6. 降级到数据库题目
     return _get_fallback_exercise(
-        student_id=student_id,
+        student_id=student_id_int,
         difficulty=difficulty,
         knowledge_point_ids=knowledge_point_ids
     )

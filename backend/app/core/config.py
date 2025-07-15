@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     
     # JWT配置
     SECRET_KEY: str = "your-secret-key-here"
+    ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     
     # AI模型配置
