@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,7 +22,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-^*4l!c&^_tf0*5pa7myw+8k09b&1!4c9u9riruk8t$y62x#13d"
+# SECRET_KEY = "django-insecure-^*4l!c&^_tf0*5pa7myw+8k09b&1!4c9u9riruk8t$y62x#13d"
+SECRET_KEY = "494a4b86c51b7a61a55d42306ca556f2402bf801340685e0ac398261291ea38e"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -39,20 +41,40 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_filters",
     'drf_spectacular',
     'student',
     'teacher',
-    # 'admin',
+    'administor',
     'core',
     'corsheaders',
-    'student.exercises'
+    'student.exercises',
+    # 'fastapi_user_mapping',
 
 ]
 
-# 用于生成API文档
+
 REST_FRAMEWORK = {
+    # 用于生成API文档
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+
+    # 用于用户认证
+    # 'DEFAULT_AUTHENTICATION_CLASSES': [
+    #     'rest_framework_simplejwt.authentication.JWTAuthentication',
+    # ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'campus_agent.authentication.FastAPIAuthBackend',
+    ]
 }
+
+JWT_SECRET = '494a4b86c51b7a61a55d42306ca556f2402bf801340685e0ac398261291ea38e'
+JWT_ALGORITHM = 'HS256'     
+# SIMPLE_JWT = {
+#     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+#     'AUTH_HEADER_TYPES': ('Bearer',),
+#     'SIGNING_KEY': SECRET_KEY,  # 默认使用 SECRET_KEY
+#     'ALGORITHM': 'HS256',  
+# }
 
 SPECTACULAR_SETTINGS = {
     'TITLE': '校园智能代理系统 API',
@@ -79,7 +101,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
-    
+    "django_backend.core.middleware.JWTAuthenticationMiddleware",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True # 允许所有源访问
@@ -110,6 +132,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        # "NAME": 'D:\\Desktop\\campus-agent\\backend\\campus_agent.db',
     }
 }
 
@@ -132,6 +155,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# AUTH_USER_MODEL = 'fastapi_user_mapping.User'
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/

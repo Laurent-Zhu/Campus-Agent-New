@@ -14,7 +14,9 @@ import QuestionAnswer from "../views/Student/QuestionAnswer.vue";
 
 //学生端路由
 import ExerciseView from '../views/Student/ExerciseView.vue';
-import ResourceAdmin from '../views/Administor/ResourceAdmin.vue';
+import UserAdmin from '../views/Administor/UserAdmin.vue';
+import CoursewareManage from '../views/Administor/CoursewareManage.vue';
+import DashboardOverview from '../views/Administor/DashboardOverview.vue';
 
 const routes = [
   {
@@ -115,15 +117,39 @@ const routes = [
   },
 
   // 管理员端路由
+  // 用户管理模块
+  {
+    path: '/administor/users',
+    name: 'UserAdmin',
+    component: UserAdmin,
+    meta: { 
+      title: '用户管理',
+      requiresAuth: true,
+      role: 'administor'
+    }
+  }, 
+
   // 课件资源管理模块
   {
-    path: '/admin/resources',
-    name: 'ResourceAdmin',
-    component: ResourceAdmin,
+    path: '/administor/resources',
+    name: 'CoursewareManage',
+    component: CoursewareManage,
     meta: { 
       title: '课件资源管理',
       requiresAuth: true,
       role: 'admin'
+    }
+  },
+
+  // 大屏概览功能
+  {
+    path: '/administor/dashboard',
+    name: 'DashboardOverview',
+    component: DashboardOverview,
+    meta: { 
+      title: '大屏概览',
+      requiresAuth: true,
+      role: 'administor'
     }
   }
 
@@ -135,7 +161,7 @@ const router = createRouter({
   routes
 });
 
-// 权限校验，暂不开放
+// // 权限校验，暂不开放
 // router.beforeEach((to, from, next) => { 
 //   const token = localStorage.getItem('token')
 //   const userRole = localStorage.getItem('role')// 假设角色存储在localStorage中

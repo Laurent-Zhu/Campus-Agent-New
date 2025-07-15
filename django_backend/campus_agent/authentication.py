@@ -3,6 +3,9 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.utils.translation import gettext_lazy as _
 from .utils.jwt_utils import FastAPIJWTValidator
+from django.contrib.auth import get_user_model 
+
+User = get_user_model()
 
 class FastAPIAuthBackend(BaseAuthentication):
     """
@@ -26,8 +29,13 @@ class FastAPIAuthBackend(BaseAuthentication):
             payload = FastAPIJWTValidator.validate_token(token)
             
             # 这里你可以根据需要创建 Django 用户对象或直接返回 payload
+            try:
+                user = User.objects.get(id = payload['sub'])
+                return (user, payload)
+            except User.DoesNotExist:
+                raise AuthenticationFailed('用户不存在')
             # 示例：返回一个元组 (user, auth)，user 可以是 None
-            return (None, payload)  # 或者返回你的自定义用户对象
+            # return (None, payload)  # 或者返回你的自定义用户对象
             
         except Exception as e:
             raise AuthenticationFailed(str(e))
