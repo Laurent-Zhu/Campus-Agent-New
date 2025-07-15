@@ -41,7 +41,13 @@
                     <!-- 管理员专属路由 -->
                     <template v-if="userRole === 'admin'">
                         <li>
-                            <router-link to="/admin/resources" :class="{active: $route.path === '/admin/resources'}">资源管理</router-link>
+                            <router-link to="/administor/users" :class="{active: $route.path === '/administor/users'}">用户管理</router-link>
+                        </li>
+                        <li>
+                            <router-link to="/administor/resources" :class="{active: $route.path === '/administor/resources'}">课件资源管理</router-link>
+                        </li>
+                        <li>
+                            <router-link to="/administor/dashboard" :class="{active: $route.path === '/administor/dashboard'}">大屏概览</router-link>
                         </li>
                     </template>
                 </template>
