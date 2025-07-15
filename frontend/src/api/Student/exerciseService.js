@@ -16,19 +16,21 @@ import { useAuthStore } from '@/stores/auth';
 export const generateExercise = async ({ 
   studentId, 
   difficulty = 'medium', 
-  knowledgePointIds = [] 
+  knowledgePointIds = [],
+  type = 'knowledge' 
 }) => {
   try {
     // 1. 单独验证令牌是否存在（关键调试）
   const authStore = useAuthStore();
   console.debug('[exerciseService] 调用generateExercise时的令牌信息:', {
-    token: authStore.token ? authStore.token.substring(0, 20) + '...' : '无令牌',
+    token: authStore.token ? authStore.token : '无令牌',
     tokenExists: !!authStore.token,
     userRole: authStore.user?.role // 同时打印用户角色，确认是否为学生
   });
 
     // 请求数据准备
     const requestData = {
+      type: type,
       student_id: String(studentId),
       difficulty,
       knowledge_point_ids: knowledgePointIds.map(String)
@@ -36,7 +38,7 @@ export const generateExercise = async ({
 
     // 发送请求 
     const response = await axios.post('/student/exercises/generate/', requestData, {
-      timeout: 30000  // 延长超时时间到30秒
+      timeout: 30000  // 延长超时时间到120秒
     })
 
     console.debug('[API] 题目生成成功:', response.data)

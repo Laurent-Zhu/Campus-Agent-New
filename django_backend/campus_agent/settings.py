@@ -52,6 +52,7 @@ INSTALLED_APPS = [
 # 用于生成API文档
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [],  # 关键：禁用全局 DRF 认证
 }
 
 SPECTACULAR_SETTINGS = {
@@ -76,11 +77,11 @@ FASTAPI_JWT = {
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    'core.middleware.fastapi_auth.FastAPIAuthMiddleware',
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware", # Django原生认证
+    'core.middleware.fastapi_auth.FastAPIAuthMiddleware',
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     
@@ -241,5 +242,12 @@ LOGGING = {
         },
     },
 }
+
+
+LLM_MODEL_TYPE = "zhipu"
+ZHIPUAI_API_KEY = "68b5a98b151f4a858dbec47ea6a75036.Xjgu3B8RdfL5HZz3"  # 从智谱AI平台获取
+ZHIPUAI_MODEL_NAME = "glm-4"
+
+
 
 

@@ -61,6 +61,11 @@ class Exercise(models.Model):
         ('code', '编程题'),
         ('doc', '文档分析题')
     ]
+    EXERCISE_TYPE_CHOICES = [
+        ('knowledge', '知识点巩固'),
+        ('weakness', '弱点专项'),
+        ('simulation', '模拟测试'),
+    ]
 
     title = models.CharField(max_length=200)
     content = models.TextField()
@@ -82,6 +87,12 @@ class Exercise(models.Model):
         KnowledgePoint,
         related_name='exercises'
     )
+    exercise_type = models.CharField(
+        max_length=20, 
+        choices=EXERCISE_TYPE_CHOICES, 
+        default='knowledge',  # 默认知识点巩固
+        help_text='练习类型：知识点巩固、弱点专项、模拟测试'
+    )
 
     hints = models.JSONField(default=list)
     common_mistakes = models.JSONField(default=list)
@@ -97,11 +108,8 @@ class Exercise(models.Model):
             raise ValidationError("answer必须包含reference_answer字段")
 
 class StudentProfile(models.Model):
-    user = models.OneToOneField(
-        User, 
-        on_delete=models.CASCADE,
-        related_name='student_profile'
-    )
+    fastapi_user_id = models.IntegerField(unique=True)  # 存储 FastAPI 的 user_id
+    username = models.CharField(max_length=100)  # 存储 FastAPI 的 username
 
     weak_knowledge_points = models.ManyToManyField(
         KnowledgePoint,
@@ -134,11 +142,9 @@ class StudentProfile(models.Model):
         self.save()
 
 class ExerciseAttempt(models.Model):
-    student = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='exercise_attempts'
-    )
+    fastapi_user_id = models.IntegerField()
+    username = models.CharField(max_length=100)  # 存储 FastAPI 的 username
+
     exercise = models.ForeignKey(
         Exercise,
         on_delete=models.CASCADE,
@@ -164,7 +170,7 @@ class ExerciseAttempt(models.Model):
     
     class Meta:
         ordering = ['-created_at']
-        unique_together = [['student', 'exercise', 'attempt_number']]
+        unique_together = [['fastapi_user_id', 'exercise', 'attempt_number']]
         verbose_name = '练习记录'
         verbose_name_plural = '练习记录'
 

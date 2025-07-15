@@ -20,25 +20,28 @@ logger = logging.getLogger(__name__)
 
 class GenerateExerciseView(APIView):
     serializer_class = ExerciseSerializer
+    authentication_classes = []  # 关键：禁用 DRF 的默认认证器
 
     def post(self, request):
-        # ===== 1. 从中间件获取已验证的用户信息（关键调整：从 request.user 提取）=====
+        # ===== 1. 从中间件获取已验证的用户信息（关键调整：从 request.auht_user 提取）=====
         # 检查是否通过中间件认证
-        if not hasattr(request, 'user') or not request.user:
-            logger.warning("未认证用户尝试访问生成题目接口")
+        # 从 request.META 获取用户信息
+        auth_user = request.META.get('FASTAPI_AUTH_USER')
+        if not auth_user or not isinstance(auth_user, dict):
+            logger.warning("未从 auth_user 获取到有效用户信息")
             return Response(
                 {'error': '未提供有效认证'}, 
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
         # ===== 2. 验证用户角色和信息完整性 =====
-        # 从中间件返回的 user_data 中提取必要字段（user_id、role）
-        user_id = request.user.get('user_id')  # 对应 FastAPI 验证接口返回的 user_id
-        role = request.user.get('role')
+        user_id = auth_user.get('user_id')  # 从 auth_user 提取
+        role = auth_user.get('role')        # 从 auth_user 提取
+        username = auth_user.get('username')
 
         # 检查用户信息是否完整
         if not user_id or not role:
-            logger.error("中间件返回的用户信息不完整")
+            logger.error("auth_user 中的用户信息不完整")
             return Response(
                 {'error': '认证信息无效'}, 
                 status=status.HTTP_401_UNAUTHORIZED
@@ -57,17 +60,6 @@ class GenerateExerciseView(APIView):
         try:
             # 强制使用中间件验证后的 user_id（防止前端篡改）
             trusted_student_id = user_id  # 直接使用中间件返回的 user_id
-            
-            # 验证用户在数据库中是否存在
-            try:
-                # 假设你的用户模型是 User，且 ID 为字符串或整数类型
-                student = User.objects.get(id=trusted_student_id)
-            except User.DoesNotExist:
-                logger.error(f"用户 ID {trusted_student_id} 在数据库中不存在")
-                return Response(
-                    {'error': f'用户不存在'},  # 不暴露具体 ID，避免信息泄露
-                    status=status.HTTP_400_BAD_REQUEST
-                )
                 
             # 透传学生 ID 到参数（可选，用于后续逻辑）
             data['student_id'] = str(trusted_student_id)
@@ -104,12 +96,14 @@ class GenerateExerciseView(APIView):
                     )
 
             # ===== 4. 生成题目 =====
-            logger.info(f"开始为学生 {trusted_student_id} 生成题目，难度: {data['difficulty']}")
+            logger.info(f"开始为学生 {trusted_student_id} （{username}）生成题目，难度: {data['difficulty']}")
             try:
                 exercise = exercise_generator.generate_personalized_exercise(
                     student_id=trusted_student_id,
                     difficulty=data['difficulty'],
-                    knowledge_point_ids=knowledge_point_ids
+                    knowledge_point_ids=knowledge_point_ids,
+                    username=username,
+                    exercise_type=data['type']  # 前端传递的是 type，后端接收为 exercise_type
                 )
             except Exception as e:
                 logger.error(f"题目生成服务错误: {str(e)}", exc_info=True)
@@ -205,30 +199,23 @@ class EvaluateAnswerView(APIView):
 
 
 
-
 class ExerciseHistoryView(APIView):
-    serializer_class = ExerciseAttemptSerializer 
+    authentication_classes = []  # 保持与其他接口一致的认证配置
 
     def get(self, request, student_id):
         try:
-            # 验证学生是否存在
-            User.objects.get(id=student_id)
-            
+            # 通过 fastapi_user_id 查询该学生的所有练习记录
             attempts = ExerciseAttempt.objects.filter(
-                student_id=student_id
-            ).select_related('exercise').order_by('-created_at','-id')[:100]
+                fastapi_user_id=student_id
+            ).order_by('-created_at')
             
+            # 序列化返回（根据需要调整序列化字段）
             serializer = ExerciseAttemptSerializer(attempts, many=True)
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
             
-        except User.DoesNotExist:
-            return Response(
-                {'error': '用户不存在'},
-                status=status.HTTP_404_NOT_FOUND
-            )
         except Exception as e:
             return Response(
-                {'error': '服务器内部错误'},
+                {'error': f'获取历史记录失败: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

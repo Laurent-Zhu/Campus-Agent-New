@@ -74,17 +74,21 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 
 # 验证 token 的函数
-def verify_token(token: str = Depends(oauth2_scheme)):
+def verify_token(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)  # 通过依赖注入获取db会话
+):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: int = payload.get("sub")
         if user_id is None:
             raise HTTPException(status_code=401, detail="无效的认证凭据")
-        # 从数据库获取用户信息
-        with get_db() as db:
-            user = db.query(User).filter(User.id == user_id).first()
+        
+        # 直接使用通过依赖注入获取的db会话
+        user = db.query(User).filter(User.id == user_id).first()
         if user is None:
             raise HTTPException(status_code=401, detail="无效的认证凭据")
+            
         return {
             "id": user.id,
             "username": user.username,

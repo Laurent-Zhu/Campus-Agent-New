@@ -1,89 +1,130 @@
 import json
-from openai import OpenAI
 from typing import Dict, List, Optional
 from student.exercises.models import KnowledgePoint
+from django.conf import settings
+
+# 根据模型导入知识点模型（用于获取知识点名称）
+from student.exercises.models import KnowledgePoint
+
+import json
+from typing import Dict, Any
+from zhipuai import ZhipuAI
+
+
 
 class LLMService:
-    def __init__(self, api_key: str = "your_api_key"):
-        """
-        初始化LLM服务
-        :param api_key: OpenAI API密钥
-        """
-        self.client = OpenAI(api_key=api_key)
-        self.default_model = "gpt-4-1106-preview"  # 使用最新模型
-
-    def generate_question(
-        self,
-        student_data: Dict,
-        difficulty: str = "medium",
-        knowledge_points: Optional[List[KnowledgePoint]] = None,
-        question_type: str = "mc"
-    ) -> Dict:
-        """
-        生成个性化练习题
-        
-        :param student_data: 学生数据 {id, correct_rate, weak_points}
-        :param difficulty: 题目难度 (easy/medium/hard)
-        :param knowledge_points: 关联知识点列表
-        :param question_type: 题目类型 (mc/tf/fb/code/doc)
-        :return: 生成的题目数据
-        """
-        # 构建知识点描述
-        kp_descriptions = []
-        if knowledge_points:
-            kp_descriptions = [f"{kp.name}（难度: {kp.difficulty_level:.1f}）" for kp in knowledge_points]
-        
-        prompt = f"""
-        根据以下要求生成一道{difficulty}难度的练习题：
-        
-        学生信息：
-        - 正确率: {student_data.get('correct_rate', 0.7):.1%}
-        - 薄弱点: {student_data.get('weak_points', [])}
-        {f"- 关联知识点: {', '.join(kp_descriptions)}" if kp_descriptions else ""}
-        
-        题目要求：
-        1. 题目类型: {self._get_question_type_desc(question_type)}
-        2. 难度级别: {difficulty}
-        3. 必须包含详细解析和常见错误分析
-        
-        返回JSON格式：
-        {{
-            "title": "题目标题",
-            "content": "题目内容",
-            "question_type": "{question_type}",
-            "difficulty": "{difficulty}",
-            "answer": {{
-                "reference_answer": "参考答案",
-                "options": ["选项A", "选项B", ...],  // 选择题需要
-                "explanation": "详细解析",
-                "common_mistakes": ["常见错误1", ...]
-            }},
-            "hints": ["提示1", "提示2"],
-            "knowledge_points": ["知识点1", ...]
-        }}
-        """
-        
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or getattr(settings, 'ZHIPUAI_API_KEY', '')
+        if not self.api_key:
+            raise ValueError("未配置ZHIPUAI_API_KEY")
+        self.client = ZhipuAI(api_key=self.api_key)
+    
+    def _call_zhipuai(self, prompt: str) -> str:
+        """调用智谱AI接口"""
         try:
             response = self.client.chat.completions.create(
-                model=self.default_model,
+                model="glm-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"}  # 要求返回JSON格式
             )
-            result = json.loads(response.choices[0].message.content)
-            
-            # 后处理：确保关键字段存在
-            result.setdefault("title", "AI生成题目")
-            result["answer"].setdefault("common_mistakes", [])
-            result.setdefault("hints", [])
-            
-            return result
+            return response.choices[0].message.content
         except Exception as e:
-            return {
-                "error": str(e),
-                "question_type": question_type,
-                "difficulty": difficulty
-            }
+            error_msg = f"智谱API调用异常: {str(e)}"
+            if "401" in str(e):
+                error_msg = "API认证失败，请检查API Key"
+            elif "429" in str(e):
+                error_msg = "API调用过于频繁，请稍后再试"
+            raise ValueError(error_msg)
+    
+    def generate_question(self, student_data: Dict[str, Any], difficulty: str, knowledge_point_ids: list) -> Dict[str, str]:
+        """生成题目"""
+        try:
+            prompt = self._build_prompt(student_data, difficulty, knowledge_point_ids)
+            llm_output = self._call_zhipuai(prompt)
+            
+            # 尝试解析JSON
+            try:
+                result = json.loads(llm_output)
+            except json.JSONDecodeError:
+                # 如果解析失败，尝试提取可能的JSON部分
+                if "{" in llm_output and "}" in llm_output:
+                    json_str = llm_output[llm_output.index("{"):llm_output.rindex("}")+1]
+                    result = json.loads(json_str)
+                else:
+                    raise ValueError("API返回结果不是有效的JSON格式")
+            
+            # 验证结果格式
+            required_fields = ["title", "question", "answer"]
+            if not all(key in result for key in required_fields):
+                raise ValueError(f"返回结果缺少必要字段，需要包含: {', '.join(required_fields)}")
+                
+            return result
+            
+        except Exception as e:
+            raise ValueError(f"题目生成失败: {str(e)}")
+
+    def _build_prompt(self, student_data: Dict[str, Any], difficulty: str, knowledge_point_ids: list) -> str:
+        """构造生成题目的提示词"""
+        prompt = f"""你必须返回一个严格的JSON格式响应，包含title、question和answer三个字段。
+根据以下要求生成一个数学题目：
+- 学生正确率: {student_data['correct_rate']}
+- 薄弱点: {', '.join(student_data['weak_points'])}
+- 难度: {difficulty}
+- 知识点ID: {', '.join(map(str, knowledge_point_ids))}
+
+返回示例格式：
+{{
+    "title": "题目标题",
+    "question": "题目内容",
+    "answer": "题目答案"
+}}"""
+        return prompt
+
+    def _validate_output(self, data: Dict) -> Dict:
+        """验证LLM输出结构"""
+        required_fields = ["title", "question", "question_type", "answer", "hints"]
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"缺少必填字段: {field}")
+        
+        if "reference_answer" not in data["answer"]:
+            raise ValueError("answer必须包含reference_answer字段")
+        
+        valid_types = ["mc", "tf", "fb", "code", "doc"]
+        if data["question_type"] not in valid_types:
+            raise ValueError(f"无效题型: {data['question_type']}")
+        
+        # 选项验证
+        if data["question_type"] in ["mc", "tf"]:
+            if not isinstance(data.get("options"), list):
+                raise ValueError("options必须是列表")
+            if data["question_type"] == "mc" and len(data["options"]) != 4:
+                raise ValueError("选择题需4个选项")
+            if data["question_type"] == "tf" and len(data["options"]) != 2:
+                raise ValueError("判断题需2个选项")
+        
+        # 列表类型转换
+        if not isinstance(data["hints"], list):
+            data["hints"] = [data["hints"]]
+        if "common_mistakes" in data and not isinstance(data["common_mistakes"], list):
+            data["common_mistakes"] = [data["common_mistakes"]]
+        
+        return data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def evaluate_answer(
         self,
