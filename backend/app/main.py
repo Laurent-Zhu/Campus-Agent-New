@@ -127,3 +127,6 @@ def initialize_knowledge_base():
     return vector_store
 
 vector_store = initialize_knowledge_base()
+
+from backend.app.models import *  # 确保chat表被创建
+Base.metadata.create_all(bind=engine)

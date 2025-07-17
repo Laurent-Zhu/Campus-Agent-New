@@ -1,50 +1,62 @@
 <template>
-    <div class="chat-wrapper">
-      <h1 class="title">学习问答助手</h1>
-      <!-- 聊天记录区域 -->
-      <el-scrollbar class="chat-box" ref="chatBox">
-        <div class="message-list">
-          <div
-            v-for="(msg, index) in messages"
-            :key="index"
-            :class="['message', msg.type === 'user' ? 'user' : 'bot']"
-          >
-            <div class="bubble">
-              <div 
-                v-if="msg.type === 'bot'" 
-                class="markdown-content"
-                v-html="renderMarkdown(msg.text)"
-              ></div>
-              <span v-else>{{ msg.text }}</span>
-              <span v-if="msg.type === 'bot' && msg.streaming" class="cursor">|</span>
+    <div class="qa-container">
+      <aside class="sidebar">
+        <button @click="createSession">新建会话</button>
+        <ul>
+          <li v-for="session in sessions" :key="session.id"
+              :class="{active: session.id === currentSessionId}"
+              @click="selectSession(session.id)">
+            {{ session.title || '未命名会话' }}
+            <span @click.stop="deleteSession(session.id)">🗑️</span>
+          </li>
+        </ul>
+      </aside>
+      <main class="chat-main">
+        <!-- 聊天内容区 -->
+        <div class="chat-box" ref="chatBox">
+          <div class="message-list">
+            <div
+              v-for="(msg, index) in messages"
+              :key="index"
+              :class="['message', msg.type === 'user' ? 'user' : 'bot']"
+            >
+              <div class="bubble">
+                <span v-if="msg.type === 'bot' && msg.streaming">
+                  <span v-html="renderMarkdown(msg.text)"></span><span class="cursor">|</span>
+                </span>
+                <span v-else v-html="renderMarkdown(msg.text)"></span>
+              </div>
             </div>
           </div>
         </div>
-      </el-scrollbar>
-      <!-- 底部输入区域 -->
-      <div class="input-area">
-        <el-input
-          v-model="question"
-          placeholder="请输入您的问题"
-          clearable
-          class="question-input"
-          @keyup.enter="submitQuestion"
-          :disabled="loading"
-        />
-        <el-button
-          type="primary"
-          @click="submitQuestion"
-          :loading="loading"
-          class="submit-btn"
-        >
-          发送
-        </el-button>
-      </div>
+        <!-- 输入区 -->
+        <div class="input-area">
+          <el-input
+            v-model="question"
+            placeholder="请输入您的问题"
+            clearable
+            @keyup.enter="submitQuestion"
+            :disabled="loading"
+          />
+          <el-button
+            type="primary"
+            @click="submitQuestion"
+            :loading="loading"
+          >发送</el-button>
+        </div>
+      </main>
     </div>
   </template>
   
   <script>
   import axios from "axios";
+  axios.interceptors.request.use(config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
   
   export default {
     name: "QuestionAnswer",
@@ -52,44 +64,70 @@
       return {
         question: "",
         loading: false,
-        messages: [],
-        streamingInterval: null, // 用于存储定时器引用
+        sessions: [], // [{id, title, created_at, messages: []}]
+        currentSessionId: null,
       };
+    },
+    computed: {
+      messages() {
+        const session = this.sessions.find(s => s.id === this.currentSessionId);
+        return session ? session.messages : [];
+      }
     },
     methods: {
       async submitQuestion() {
+        if (!this.currentSessionId) {
+          this.$message.error("请先新建会话！");
+          return;
+        }
         const q = this.question.trim();
         if (!q) {
           this.$message.error("请输入问题！");
           return;
         }
-        
-        // 添加用户消息
-        this.messages.push({ type: "user", text: q });
+        // 1. 先保存用户消息到后端
+        await axios.post(`/api/fastapi/v1/student/sessions/${this.currentSessionId}/messages`, {
+          role: 'user',
+          content: q
+        });
+        // 2. 前端本地加一条消息
+        const session = this.sessions.find(s => s.id === this.currentSessionId);
+        if (session) {
+          session.messages.push({ type: "user", text: q, streaming: false });
+        }
         this.question = "";
         this.loading = true;
         this.scrollToBottom();
-        
+
         try {
+          // 3. 获取历史消息（只取最近10条）
+          const history = this.messages.slice(-10).map(m => ({
+            role: m.type === 'user' ? 'user' : 'bot',
+            content: m.text
+          }));
+          // 4. 请求AI回复
           const res = await axios.post("/api/fastapi/v1/student/qa", {
             question: q,
+            history
           });
+          console.log("AI接口返回：", res);
           const answerText = res.data.answer || "抱歉，未能获取回答。";
-          
-          // 添加空的 bot 消息用于流式填充
+          // 5. 先加一条空的bot消息用于流式输出
           const botMsgIndex = this.messages.length;
-          this.messages.push({ 
-            type: "bot", 
-            text: "", 
-            streaming: true 
-          });
+          const session = this.sessions.find(s => s.id === this.currentSessionId);
+          if (session) {
+            session.messages.push({ type: "bot", text: "", streaming: true });
+          }
           this.scrollToBottom();
-          
-          // 开始流式输出
+          // 6. 流式输出
           await this.startStreamingText(answerText, botMsgIndex);
-          
+          // 7. 保存bot消息到后端
+          await axios.post(`/api/fastapi/v1/student/sessions/${this.currentSessionId}/messages`, {
+            role: 'bot',
+            content: answerText
+          });
         } catch (error) {
-          console.error("API调用失败:", error);
+          console.error("AI接口异常：", error, error.response);
           this.$message.error("获取答案失败，请稍后重试！");
           this.messages.push({
             type: "bot",
@@ -100,33 +138,39 @@
           this.scrollToBottom();
         }
       },
-      
+
       async startStreamingText(text, messageIndex) {
         return new Promise((resolve) => {
           let i = 0;
+          const session = this.sessions.find(s => s.id === this.currentSessionId);
+          if (!session || !session.messages[messageIndex]) {
+            // 防御性处理
+            this.loading = false;
+            return;
+          }
           const streamText = () => {
             if (i < text.length) {
-              // 直接修改消息对象的text属性
-              this.messages[messageIndex].text += text[i];
+              session.messages[messageIndex].text += text[i];
               i++;
+              this.saveSessions();
               this.scrollToBottom();
-              this.streamingInterval = setTimeout(streamText, 50);
+              setTimeout(streamText, 30); // 速度可调
             } else {
-              // 流式输出完成
-              this.messages[messageIndex].streaming = false;
+              session.messages[messageIndex].streaming = false;
               this.loading = false;
+              this.saveSessions();
               resolve();
             }
           };
           streamText();
         });
       },
-      
+
       scrollToBottom() {
         this.$nextTick(() => {
           const scrollbar = this.$refs.chatBox;
-          if (scrollbar && scrollbar.wrap) {
-            scrollbar.wrap.scrollTop = scrollbar.wrap.scrollHeight;
+          if (scrollbar && scrollbar.scrollHeight !== undefined) {
+            scrollbar.scrollTop = scrollbar.scrollHeight;
           }
         });
       },
@@ -198,6 +242,61 @@
         div.textContent = text;
         return div.innerHTML;
       },
+
+      createSession() {
+        const id = Date.now().toString();
+        this.sessions.unshift({
+          id,
+          title: '新会话',
+          messages: [],
+          createdAt: new Date()
+        });
+        this.currentSessionId = id;
+        this.saveSessions();
+      },
+      selectSession(id) {
+        this.currentSessionId = id;
+      },
+      async deleteSession(id) {
+        await axios.delete(`/api/fastapi/v1/student/sessions/${id}`);
+        await this.loadSessions();
+        if (this.sessions.length) {
+          await this.selectSession(this.sessions[0].id);
+        } else {
+          await this.createSession();
+        }
+      },
+      saveSessions() {
+        localStorage.setItem('qa_sessions', JSON.stringify(this.sessions));
+      },
+      async loadSessions() {
+        const token = localStorage.getItem('token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const res = await axios.get('/api/fastapi/v1/student/sessions', { headers });
+        this.sessions = res.data;
+      },
+      async createSession() {
+        const token = localStorage.getItem('token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await axios.post('/api/fastapi/v1/student/sessions', { title: '新会话' }, { headers });
+        await this.loadSessions();
+        await this.selectSession(res.data.id);
+      },
+      async selectSession(id) {
+        this.currentSessionId = id;
+        const res = await axios.get(`/api/fastapi/v1/student/sessions/${id}`);
+        // 转换为前端格式
+        const session = this.sessions.find(s => s.id === id);
+        if (session) {
+          session.messages = res.data.messages.map(m => ({
+            type: m.role === 'user' ? 'user' : 'bot',
+            text: m.content,
+            streaming: false
+          }));
+        }
+        this.scrollToBottom();
+      },
     },
     
     beforeDestroy() {
@@ -207,7 +306,13 @@
       }
     },
   
-    mounted() {
+    async mounted() {
+      await this.loadSessions();
+      if (!this.sessions.length) {
+        await this.createSession();
+      } else {
+        await this.selectSession(this.sessions[0].id);
+      }
       // 全局复制代码功能
       window.copyCode = (btn) => {
         const codeBlock = btn.closest('.code-block');
@@ -240,6 +345,96 @@
   </script>
   
   <style scoped>
+  .qa-container {
+    display: flex;
+    height: 90vh;
+    background-color: #f8f8f8;
+  }
+
+  .sidebar {
+    width: 250px;
+    padding: 20px;
+    border-right: 1px solid #eee;
+    overflow-y: auto;
+    background-color: #fff;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+  }
+
+  .sidebar button {
+    width: 100%;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    background-color: #3f51b5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .sidebar button:hover {
+    background-color: #303f9f;
+  }
+
+  .sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .sidebar li {
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f1f1f1;
+    transition: background-color 0.2s ease;
+  }
+
+  .sidebar li:hover {
+    background-color: #e0e0e0;
+  }
+
+  .sidebar li.active {
+    background-color: #3f51b5;
+    color: white;
+  }
+
+  .sidebar li.active:hover {
+    background-color: #303f9f;
+  }
+
+  .sidebar li span {
+    cursor: pointer;
+    color: #ff4d4f;
+    font-size: 18px;
+    transition: color 0.2s ease;
+  }
+
+  .sidebar li span:hover {
+    color: #ff7875;
+  }
+
+  .chat-main {
+    /* min-width: 70vw;
+    max-width: 90vw;
+    margin: 0 auto; */
+    /* 只保留必要的布局属性 */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+  }
+
   .chat-wrapper {
     max-width: 720px;
     height: 90vh;
@@ -262,6 +457,9 @@
   }
   
   .chat-box {
+    /* min-width: 70vw;
+    max-width: 90vw;
+    margin: 0 auto; */
     flex: 1;
     overflow-y: auto;
     background: #fff;
@@ -298,7 +496,8 @@
     word-break: break-word;
     transition: all 0.2s ease;
     position: relative;
-    text-align: left; /* 添加左对齐 */
+    text-align: left;
+    background: #f1f1f1;
   }
   
   .message.user .bubble {
@@ -354,13 +553,45 @@
   
   /* 响应式设计 */
   @media (max-width: 768px) {
-    .chat-wrapper {
+    .qa-container {
+      flex-direction: column;
       height: 100vh;
-      margin: 0;
-      padding: 10px;
-      border-radius: 0;
     }
-    
+
+    .sidebar {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid #eee;
+      padding: 10px;
+      box-shadow: none;
+    }
+
+    .sidebar button {
+      padding: 8px 12px;
+      font-size: 14px;
+      gap: 6px;
+    }
+
+    .sidebar li {
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    .sidebar li span {
+      font-size: 16px;
+    }
+
+    .chat-main {
+      padding: 10px;
+    }
+
+    .chat-wrapper {
+      height: 100%;
+      margin: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
     .bubble {
       max-width: 90%;
       font-size: 14px;
