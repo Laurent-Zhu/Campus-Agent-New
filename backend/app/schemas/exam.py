@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 class QuestionBase(BaseModel):
     type: str
@@ -62,8 +62,11 @@ class Exam(ExamBase):
 class ExamGenerateRequest(BaseModel):
     course_id: int
     knowledge_points: List[str]
-    question_types: dict  # {"choice": 5, "completion": 3, "programming": 2}
-    difficulty: int  # 1-5
+    question_types: dict
+    question_scores: Optional[dict] = None  # 新增
+    difficulty: int
+    exam_title: Optional[str] = None
+    extra_context: Optional[str] = None
 
 class ExamUpdate(BaseModel):
     title: Optional[str] = None

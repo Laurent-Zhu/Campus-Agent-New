@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from backend.app.core.deps import get_db, get_current_user
 from backend.app.models.user import User
 from backend.app.core.security import get_password_hash, verify_password, create_access_token
+from backend.app.schemas.user import UserCreate
+from backend.app.schemas.user import User as UserSchema
 
 from jose import JWTError, jwt
 

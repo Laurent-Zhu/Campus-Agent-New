@@ -1,7 +1,7 @@
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.agents import Tool
-from typing import List, Dict
+from typing import List, Dict, Optional
 from langchain_community.vectorstores import FAISS
 import random
 import json
@@ -12,146 +12,30 @@ from utils.model_client import ChatGLMClient
 
 # 定义各题型的 prompt 模板字典
 PROMPT_TEMPLATES = {
+    "section_intro": """
+{section_number}、{section_name}(共{section_count}题，每题{score}分，共{section_total}分，题型说明：{section_desc})\n""",
     "completion": """
-你是一位资深命题专家，请根据以下要求生成一道填空题（不要给出选项）：
-
-【知识点】
-{knowledge_point}
-
-【题型】
-{question_type}
-
-【难度】
-{difficulty}/5
-
-【背景材料】
-{context}
-
-请严格按照以下格式返回JSON（不要返回markdown代码块）：
-{{
-  "content": "题目内容（包含空白处）",
-  "answer": "正确答案",
-  "analysis": "解析说明",
-  "score": 5
-}}
-""",
+【填空题】请根据以下要求生成一道填空题（不要给出选项）：\n\n【知识点】\n{knowledge_point}\n\n【难度】\n{difficulty}/5\n\n【分值】\n{score}分\n\n【背景材料】\n{context}\n\n请严格按照以下格式返回JSON（不要返回markdown代码块）：\n{{\n  \"content\": \"题目内容（包含空白处）\",\n  \"answer\": \"正确答案\",\n  \"analysis\": \"解析说明\",\n  \"score\": {score}\n}}\n""",
     "multiple_choice": """
-你是一位资深命题专家，请根据以下要求生成一道多选题（正确选项必须大于等于2个）：
-
-【知识点】
-{knowledge_point}
-
-【题型】
-{question_type}
-
-【难度】
-{difficulty}/5
-
-【背景材料】
-{context}
-
-请严格按照以下格式返回JSON（不要返回markdown代码块）：
-{{
-  "content": "题目内容",
-  "options": ["A. 选项1", "B. 选项2", "C. 选项3", "..."],
-  "answer": ["A", "C"],
-  "analysis": "解析说明",
-  "score": 5
-}}
-""",
+【多选题】请根据以下要求生成一道多选题（正确选项必须大于等于2个）：\n\n【知识点】\n{knowledge_point}\n\n【难度】\n{difficulty}/5\n\n【分值】\n{score}分\n\n【背景材料】\n{context}\n\n请严格按照以下格式返回JSON（不要返回markdown代码块）：\n{{\n  \"content\": \"题目内容\",\n  \"options\": [\"A. 选项1\", \"B. 选项2\", \"C. 选项3\", \"...\"],\n  \"answer\": [\"A\", \"C\"],\n  \"analysis\": \"解析说明\",\n  \"score\": {score}\n}}\n""",
     "case_analysis": """
-你是一位资深命题专家，请根据以下要求生成一道案例分析题（简答题，不要给选项）：
-
-【知识点】
-{knowledge_point}
-
-【题型】
-{question_type}
-
-【难度】
-{difficulty}/5
-
-【背景材料】
-{context}
-
-请严格按照以下格式返回JSON（不要返回markdown代码块）：
-{{
-  "content": "题目内容",
-  "answer": "正确答案",
-  "analysis": "解析说明",
-  "score": 5
-}}
-""",
+【案例分析题】请根据以下要求生成一道案例分析题（简答题，不要给选项）：\n\n【知识点】\n{knowledge_point}\n\n【难度】\n{difficulty}/5\n\n【分值】\n{score}分\n\n【背景材料】\n{context}\n\n请严格按照以下格式返回JSON（不要返回markdown代码块）：\n{{\n  \"content\": \"题目内容\",\n  \"answer\": \"正确答案\",\n  \"analysis\": \"解析说明\",\n  \"score\": {score}\n}}\n""",
     "true_false": """
-你是一位资深命题专家，请根据以下要求生成一道判断题：
-
-【知识点】
-{knowledge_point}
-
-【题型】
-{question_type}
-
-【难度】
-{difficulty}/5
-
-【背景材料】
-{context}
-
-请严格按照以下格式返回JSON（不要返回markdown代码块）：
-{{
-  "content": "题目内容",
-  "answer": "正确答案",
-  "analysis": "解析说明",
-  "score": 5
-}}
-""",
+【判断题】请根据以下要求生成一道判断题：\n\n【知识点】\n{knowledge_point}\n\n【难度】\n{difficulty}/5\n\n【分值】\n{score}分\n\n【背景材料】\n{context}\n\n请严格按照以下格式返回JSON（不要返回markdown代码块）：\n{{\n  \"content\": \"题目内容\",\n  \"answer\": \"正确答案\",\n  \"analysis\": \"解析说明\",\n  \"score\": {score}\n}}\n""",
     "programming": """
-你是一位资深命题专家，请根据以下要求生成一道编程题，注意不是选择题，不要给出选项：
-
-【知识点】
-{knowledge_point}
-
-【题型】
-{question_type}
-
-【难度】
-{difficulty}/5
-
-【背景材料】
-{context}
-
-请严格按照以下格式返回JSON（不要返回markdown代码块）：
-{{
-  "content": "题目内容",
-  "answer": "正确答案",
-  "analysis": "解析说明",
-  "score": 5
-}}
-""",
+【编程题】请根据以下要求生成一道编程题，注意不是选择题，不要给出选项：\n\n【知识点】\n{knowledge_point}\n\n【难度】\n{difficulty}/5\n\n【分值】\n{score}分\n\n【背景材料】\n{context}\n\n请严格按照以下格式返回JSON（不要返回markdown代码块）：\n{{\n  \"content\": \"题目内容\",\n  \"answer\": \"正确答案\",\n  \"analysis\": \"解析说明\",\n  \"score\": {score}\n}}\n""",
     "single_choice": """
-你是一位资深命题专家，请根据以下要求生成一道单选题：
+【单选题】请根据以下要求生成一道单选题：\n\n【知识点】\n{knowledge_point}\n\n【难度】\n{difficulty}/5\n\n【分值】\n{score}分\n\n【背景材料】\n{context}\n\n请严格按照以下格式返回JSON（不要返回markdown代码块）：\n{{\n  \"content\": \"题目内容\",\n  \"options\": [\"A. 选项1\", \"B. 选项2\", \"C. 选项3\", \"...\"],\n  \"answer\": \"正确答案\",\n  \"analysis\": \"解析说明\",\n  \"score\": {score}\n}}\n"""
+}
 
-【知识点】
-{knowledge_point}
-
-【题型】
-{question_type}
-
-【难度】
-{difficulty}/5
-
-【背景材料】
-{context}
-
-请严格按照以下格式返回JSON（不要返回markdown代码块）：
-{{
-  "content": "题目内容",
-  "options": ["A. 选项1", "B. 选项2", "C. 选项3", "..."],
-  "answer": "正确答案",
-  "analysis": "解析说明",
-  "score": 5
-}}
-"""
+# 题型中文名和说明
+SECTION_NAMES = {
+    "single_choice": ("单选题", "每题只有一个正确答案，从四个选项中选择最合适的一个。\n"),
+    "multiple_choice": ("多选题", "每题有两个或两个以上正确答案，全部选对才得分。\n"),
+    "true_false": ("判断题", "判断下列说法是否正确。\n"),
+    "completion": ("填空题", "在空格处填写正确答案。\n"),
+    "case_analysis": ("案例分析题", "根据案例回答问题，简答型。\n"),
+    "programming": ("编程题", "根据要求编写代码实现功能。\n")
 }
 
 
@@ -265,11 +149,16 @@ class ExamGeneratorAgent:
         knowledge_point: str,
         question_type: str,
         difficulty: int,
-        vector_store: FAISS
+        vector_store: FAISS,
+        extra_context: Optional[str] = None,
+        score: int = 5  # 新增
     ) -> QuestionCreate:
         # 检索相关知识
         related_docs = vector_store.similarity_search(knowledge_point, k=3)
         context = "\n".join([doc.page_content for doc in related_docs])
+        # 拼接上传内容
+        if extra_context:
+            context += "\n" + extra_context
 
         # 构建 LangChain 的 PromptTemplate
         # prompt_template = PromptTemplate(
@@ -290,17 +179,18 @@ class ExamGeneratorAgent:
         #     """
         # )
         template_str = PROMPT_TEMPLATES.get(question_type)
-
+        if template_str is None:
+            raise ValueError(f"未知题型: {question_type}")
         prompt_template = PromptTemplate(
-            input_variables=["knowledge_point", "question_type","difficulty", "context"],
+            input_variables=["knowledge_point", "question_type", "difficulty", "context", "score"],
             template=template_str
         )
-
         prompt = prompt_template.format(
             knowledge_point=knowledge_point,
             question_type=question_type,
             difficulty=difficulty,
-            context=context
+            context=context,
+            score=score
         )
 
         # response = await self.client.generate_text(prompt)
@@ -352,7 +242,7 @@ class ExamGeneratorAgent:
             analysis=result.get("analysis"),
             difficulty=difficulty,
             knowledge_point=knowledge_point,
-            score=int(result.get("score", 5)),
+            score=score,
             exam_id=None
         )
 
@@ -360,35 +250,68 @@ class ExamGeneratorAgent:
         self,
         course_id: int,
         knowledge_points: List[str],
-        question_config: Dict[str, int],  # 包含题型和数量的配置
+        question_config: Dict[str, int],
+        question_scores: Optional[Dict[str, int]] = None,
         difficulty: int = 3,
         duration: int = 90,
         created_by: int = None,
-        vector_store: FAISS = None
+        vector_store: FAISS = None,
+        exam_title: Optional[str] = None,
+        extra_context: Optional[str] = None
     ) -> ExamCreate:
         questions = []
         total_score = 0
         print("ai_agents/teacher/exam_generation/exam_generator.py的_generate_exam在工作")
 
-        # 根据题型和数量生成题目
-        for q_type, count in question_config.items():
-            for _ in range(count):
-                # 随机选择一个知识点
+        # 题型顺序
+        section_order = ["single_choice", "multiple_choice", "true_false", "completion", "case_analysis", "programming"]
+        section_number = 1
+        for q_type in section_order:
+            count = question_config.get(q_type, 0)
+            if count <= 0:
+                continue
+            score = question_scores.get(q_type, 5) if question_scores else 5
+            section_name, section_desc = SECTION_NAMES.get(q_type, (q_type, ""))
+            section_total = count * score
+            # 生成大题说明
+            section_intro = PROMPT_TEMPLATES["section_intro"].format(
+                section_number=ExamGeneratorAgent._to_chinese_number(section_number),
+                section_name=section_name,
+                section_count=count,
+                score=score,
+                section_total=section_total,
+                section_desc=section_desc
+            )
+            # 生成本大题所有小题
+            for i in range(count):
                 k_point = random.choice(knowledge_points)
-                # 调用生成单题的方法
-                question = await self._generate_question(k_point, q_type, difficulty, vector_store)
+                question = await self._generate_question(
+                    k_point, q_type, difficulty, vector_store, extra_context=extra_context, score=score
+                )
+                # 在每个小题内容前加题号
+                question.content = f"{i+1}. {question.content}"
                 questions.append(question)
-                total_score += question.score
+                total_score += score
+            # 在大题第一个小题前插入大题说明
+            questions[-count].content = section_intro + "\n" + questions[-count].content
+            section_number += 1
 
-        # 返回试卷
         return ExamCreate(
             id=None,
-            title=f"自动生成试卷-{datetime.now().strftime('%Y%m%d%H%M')}",
+            title=exam_title or f"自动生成试卷-{datetime.now().strftime('%Y%m%d%H%M')}",
             course_id=course_id,
             total_score=total_score,
             duration=duration,
-            questions=questions,  # 包含所有生成的题目
+            questions=questions,
             created_at=datetime.now(),
             created_by=created_by,
             status="draft"
         )
+
+    @staticmethod
+    def _to_chinese_number(num):
+        # 1->一, 2->二, ...
+        cn = "一二三四五六七八九十"
+        if 1 <= num <= 10:
+            return cn[num-1]
+        return str(num)

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Response
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional, Dict
 from ...core.deps import get_db, get_current_user
 from ...schemas.exam import ExamCreate, Exam, ExamGenerateRequest, ExamUpdate
 from ...models.exam import Exam as ExamModel, Question as QuestionModel
@@ -12,6 +12,8 @@ from fastapi.responses import JSONResponse
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from io import BytesIO
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
@@ -39,7 +41,7 @@ current_dir = os.path.dirname(__file__)
 font_path = os.path.abspath(os.path.join(current_dir, '..', '..', 'static', 'fonts', 'simhei.ttf'))
 # pdfmetrics.registerFont(TTFont('SimHei', '/home/laurentzhu/PycharmProjects/CampusAgent-fusion/backend/app/static/fonts/simhei.ttf'))
 addMapping('SimHei', 0, 0, 'SimHei')
-
+pdfmetrics.registerFont(TTFont('SimHei', font_path))
 router = APIRouter()
 
 @router.post("/generate", response_model=ExamCreate)
@@ -56,19 +58,25 @@ async def generate_exam(
             detail="只有教师可以生成考试"
         )
     try:
+        # 1. 自动增量入库
+        if request.extra_context:
+            # 假设你有一个 add_text_to_vector_store 方法
+            from backend.app.main import vector_store
+            vector_store.add_texts([request.extra_context])
+        # 2. 传递 extra_context 给智能体
         agent = AgentFactory.create_agent("exam_generator")
-        if not agent:
-            raise ValueError("创建智能体失败")
-        print("generate_exam开始")
         vector_store = get_vector_store()
         questions_exam = await agent.generate_exam(
             course_id=request.course_id,
             knowledge_points=request.knowledge_points,
-            question_config=request.question_types,  # 传递题型和数量配置
+            question_config=request.question_types,
+            question_scores=request.question_scores,  # 新增
             difficulty=request.difficulty,
             duration=120,
             created_by=current_user.id,
-            vector_store=vector_store  # 传递知识库
+            vector_store=vector_store,
+            exam_title=request.exam_title,
+            extra_context=request.extra_context  # 新增
         )
         print("generate_exam成功")
         return questions_exam
@@ -96,16 +104,16 @@ def generate_word_from_exam_data(exam_data: dict, include_analysis: bool = True)
 
     # 题目
     for idx, q in enumerate(exam_data.get("questions", []), 1):
-        document.add_paragraph(f"Q{idx}: {q.get('content', '')}")
+        document.add_paragraph(f"{q.get('content', '')}")
 
         options = q.get("options", [])
         if isinstance(options, list):
             for i, opt in enumerate(options):
                 label = chr(65 + i)  # A, B, C...
                 if isinstance(opt, dict):
-                    text = f"{label}. {opt.get('text', '')}"
+                    text = f"{opt.get('text', '')}"#{label}. {opt.get('text', '')}"
                 else:
-                    text = f"{label}. {str(opt)}"
+                    text = f"{str(opt)}"#{label}. {str(opt)}"
                 document.add_paragraph(text, style='List Bullet')
 
         # 根据 include_analysis 参数决定是否包含答案和解析
@@ -133,7 +141,7 @@ def generate_pdf_from_exam_data(exam_data: dict, include_analysis: bool = True) 
     story.append(Spacer(1, 12))
 
     for idx, q in enumerate(exam_data.get("questions", []), 1):
-        question_text = f"Q{idx}: {q.get('content', '')}"
+        question_text = f"{q.get('content', '')}"
         story.append(Paragraph(question_text, styles['Normal']))
         story.append(Spacer(1, 6))
 

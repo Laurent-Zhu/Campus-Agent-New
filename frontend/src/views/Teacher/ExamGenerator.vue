@@ -5,7 +5,7 @@
 
     <div class="input-section">
       <h2>上传知识材料（可选）</h2>
-      <input type="file" @change="handleFileUpload" accept=".pdf,.docx" />
+      <input type="file" @change="handleFileUpload" accept=".pdf,.docx,.txt" />
       <button @click="uploadMaterials">上传</button>
       <p v-if="fileName">已选择文件: {{ fileName }}</p>
     </div>
@@ -13,12 +13,15 @@
     <div class="input-section">
       <h2>试卷配置</h2>
 
-      <label>选择课程:</label>
+      <label>
+        选择课程:<span style="color: red;">*</span>
+      </label>
       <el-select
         v-model="examConfig.courseId"
         placeholder="请选择课程"
         @change="onCourseChange"
         style="width: 100%; margin-bottom: 15px;"
+        required
       >
         <el-option
           v-for="course in courseOptions"
@@ -28,13 +31,14 @@
         />
       </el-select>
 
-      <label>知识点:</label>
+      <label>知识点:<span style="color: red;">*</span></label>
       <el-select
         v-model="examConfig.knowledgePoints"
         multiple
         placeholder="请选择知识点"
         :disabled="!examConfig.courseId"
         style="width: 100%; margin-bottom: 15px;"
+        required
       >
         <el-option
           v-for="point in currentKnowledgePoints"
@@ -45,15 +49,36 @@
       </el-select>
 
       <label>题型配置:</label>
-      <div v-for="type in questionTypes" :key="type.value" style="margin-bottom: 8px;">
+      <div v-for="type in questionTypes" :key="type.value" style="margin-bottom: 8px; display: flex; align-items: center;">
         <span>{{ type.label }}</span>
         <el-input-number
           v-model="examConfig.questionTypes[type.value]"
           :min="0"
-          :max="10"
-          style="margin-left: 12px;"
+          style="margin-left: 12px; width: 150px;"
+        />
+        <span style="margin-left: 16px;">分值：</span>
+        <el-input-number
+          v-model="examConfig.questionScores[type.value]"
+          :min="1"
+          style="margin-left: 4px; width: 150px;"
         />
       </div>
+      <div style="margin: 12px 0; font-weight: bold; color: #007bff;">
+        当前试卷总分：{{ totalScore }} 分
+      </div>
+
+      <el-input
+        type="textarea"
+        v-model="examConfig.customKnowledgePoints"
+        placeholder="可自定义知识点，每行一个"
+        :rows="3"
+        style="margin-bottom: 15px;"
+      />
+      <el-input
+        v-model="examConfig.examTitle"
+        placeholder="请输入试卷名称（可选）"
+        style="margin-bottom: 15px;"
+      />
 
       <!-- <label>难度等级:</label>
       <el-rate v-model="examConfig.difficulty" :max="5" style="margin-bottom: 15px;" />
@@ -73,7 +98,7 @@
       <div class="action-buttons" style="display: flex; justify-content: flex-start; gap: 10px;">
         <button
           @click="generateExam"
-          :disabled="loading"
+          :disabled="loading || !examConfig.courseId || !examConfig.knowledgePoints.length"
           class="primary-button"
         >
           {{ loading ? '正在生成...' : '生成试卷' }}
@@ -110,7 +135,12 @@
         <button @click="handleDownloadWORD(true)">下载试题+答案解析(.docx)</button>
       </div>
       <div v-for="(q, idx) in examData.questions" :key="q.id" style="margin-bottom: 16px; text-align: left;">
-        <div><b>Q{{ idx + 1 }} ({{ q.type }})：</b>{{ q.content }}</div>
+        <div v-if="isSectionTitle(q.content)" style="font-weight:bold; margin:8px 0; white-space:pre-line;">
+          {{ getSectionTitle(q.content) }}
+        </div>
+        <div v-for="line in q.content.split('\n')" :key="line" style="white-space: pre-line;">
+          {{ line }}
+        </div>
         <div v-if="q.options" style="margin-left: 12px; text-align: left;">
           <div v-for="(opt, i) in q.options" :key="i">{{ opt }}</div>
         </div>
@@ -127,6 +157,13 @@
 <script>
 import axios from 'axios'
 import { useExamStore } from '@/stores/exam'
+import mammoth from "mammoth";
+// import * as pdfjsLib from "pdfjs-dist/build/pdf";
+// import pdfjsWorker from "pdfjs-dist/build/pdf.worker.entry";
+
+// pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+import * as pdfjsLib from "pdfjs-dist/build/pdf";
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default {
   name: 'ExamGenerator',
@@ -137,6 +174,7 @@ export default {
       examData: null,
       selectedFile: null,
       fileName: '',
+      uploadedFileContent: '', // 新增
       examConfig: {
         courseId: '',
         knowledgePoints: [],
@@ -148,7 +186,17 @@ export default {
           case_analysis: 0,
           programming: 0
         },
-        difficulty: 3
+        questionScores: { // 新增
+          single_choice: 5,
+          multiple_choice: 5,
+          true_false: 5,
+          completion: 5,
+          case_analysis: 10,
+          programming: 20
+        },
+        difficulty: 3,
+        customKnowledgePoints: '', // 新增
+        examTitle: '' // 新增
       },
       questionTypes: [
         { value: 'single_choice', label: '单选题' },
@@ -177,6 +225,15 @@ export default {
       return this.examConfig.courseId
         ? this.knowledgePointMap[this.examConfig.courseId] || []
         : []
+    },
+    totalScore() {
+      let sum = 0;
+      for (const type of this.questionTypes) {
+        const count = Number(this.examConfig.questionTypes[type.value]) || 0;
+        const score = Number(this.examConfig.questionScores[type.value]) || 0;
+        sum += count * score;
+      }
+      return sum;
     }
   },
   created() {
@@ -203,9 +260,42 @@ export default {
     console.log('课程初始化完成:', store.courseOptions)
   },
   methods: {
-    handleFileUpload(event) {
-      this.selectedFile = event.target.files[0]
-      this.fileName = this.selectedFile?.name || ''
+    async handleFileUpload(event) {
+      this.selectedFile = event.target.files[0];
+      this.fileName = this.selectedFile?.name || '';
+      this.uploadedFileContent = '';
+
+      if (!this.selectedFile) return;
+
+      const file = this.selectedFile;
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      if (ext === 'txt') {
+        // 纯文本
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.uploadedFileContent = e.target.result;
+        };
+        reader.readAsText(file);
+      } else if (ext === 'docx') {
+        // Word
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        this.uploadedFileContent = result.value;
+      } else if (ext === 'pdf') {
+        // PDF
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map(item => item.str).join(' ') + '\n';
+        }
+        this.uploadedFileContent = text;
+      } else {
+        this.errorMessage = '暂不支持该文件类型';
+      }
     },
     async uploadMaterials() {
       if (!this.selectedFile) {
@@ -233,17 +323,33 @@ export default {
       this.examConfig.knowledgePoints = []
     },
     async generateExam() {
+      if (!this.examConfig.courseId) {
+        this.errorMessage = '请选择课程后再生成试卷。';
+        return;
+      }
+      if (!this.examConfig.knowledgePoints || this.examConfig.knowledgePoints.length === 0) {
+        this.errorMessage = '请选择知识点后再生成试卷。';
+        return;
+      }
       this.loading = true
       this.errorMessage = ''
       try {
+        const customPoints = this.examConfig.customKnowledgePoints
+          ? this.examConfig.customKnowledgePoints.split('\n').map(s => s.trim()).filter(Boolean)
+          : [];
+        const allKnowledgePoints = [...this.examConfig.knowledgePoints, ...customPoints];
+
         const token = localStorage.getItem('token')
         const res = await axios.post(
           '/api/fastapi/v1/exams/generate',
           {
             course_id: this.examConfig.courseId,
-            knowledge_points: this.examConfig.knowledgePoints,
+            knowledge_points: allKnowledgePoints,
             question_types: this.examConfig.questionTypes,
-            difficulty: this.examConfig.difficulty
+            question_scores: this.examConfig.questionScores, // 传递分值
+            difficulty: this.examConfig.difficulty,
+            exam_title: this.examConfig.examTitle || undefined,
+            extra_context: this.uploadedFileContent || undefined // 新增
           },
           {
             headers: { Authorization: `Bearer ${token}` }
@@ -283,7 +389,7 @@ export default {
       if (!this.examData) return
       try {
         const res = await axios.post(
-          '/api/fastapiv1/exams/generate-word',
+          '/api/fastapi/v1/exams/generate-word',
           this.examData,
           {
             params: { include_analysis: includeAnalysis },
@@ -300,6 +406,19 @@ export default {
       } catch (error) {
         this.errorMessage = 'Word 下载失败，请重试。'
       }
+    },
+    isSectionTitle(content) {
+      return content.startsWith('### ') || content.startsWith('## ') || content.startsWith('# ');
+    },
+    getSectionTitle(content) {
+      if (content.startsWith('### ')) {
+        return content.substring(4);
+      } else if (content.startsWith('## ')) {
+        return content.substring(3);
+      } else if (content.startsWith('# ')) {
+        return content.substring(2);
+      }
+      return content;
     }
   }
 }
